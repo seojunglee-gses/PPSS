@@ -236,7 +236,8 @@ label {
 }
 
 textarea,
-input[type="password"] {
+input[type="password"],
+select {
   width: 100%;
   padding: 12px;
   border-radius: 12px;

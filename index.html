@@ -122,6 +122,13 @@
             browser to align with the privacy-aware setup described in the study.
           </p>
           <form id="codeForm" class="settings-form">
+            <label for="codeRole">Select role</label>
+            <select id="codeRole" name="codeRole">
+              <option value="The Public">The Public (citizen)</option>
+              <option value="Business Owners">Business Owners</option>
+              <option value="Planners">Planners</option>
+              <option value="Government">Government (server manager)</option>
+            </select>
             <label for="personalCode">Personal code</label>
             <input type="password" id="personalCode" name="personalCode" required placeholder="Enter a private access code" />
             <button type="submit" class="primary">Save Code</button>
