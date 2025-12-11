@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ChatGPT-assisted PPSS</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="logo" aria-label="PPSS Logo">
+        <span class="logo-mark">PP</span>
+      </div>
+      <nav class="nav">
+        <button class="nav-item active" data-view="home" aria-label="Home">
+          <span class="icon">🏠</span>
+          <span class="nav-text">Home</span>
+        </button>
+        <button class="nav-item" data-view="workspace" aria-label="Workspace">
+          <span class="icon">💻</span>
+          <span class="nav-text">Workspace</span>
+        </button>
+        <button class="nav-item" data-view="report" aria-label="Report">
+          <span class="icon">📑</span>
+          <span class="nav-text">Report</span>
+        </button>
+        <button class="nav-item" data-view="settings" aria-label="Settings">
+          <span class="icon">⚙️</span>
+          <span class="nav-text">Settings</span>
+        </button>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="top-bar">
+        <div>
+          <h1>ChatGPT-assisted Public Participation Support System</h1>
+          <p class="subtitle">Prototype inspired by the PPSS platform described in the referenced study.</p>
+        </div>
+        <div class="user-status">
+          <div class="status-text" id="statusText">Signed out</div>
+          <button class="secondary" id="logoutBtn" aria-label="Log out" hidden>Log Out</button>
+        </div>
+      </header>
+
+      <section id="home" class="view active" aria-label="Home">
+        <div class="notice" id="homeNotice">Sign in with your personal code to move into the collaborative workspace.</div>
+        <div class="audience-grid">
+          <div class="audience-card" data-role="The Public">
+            <div class="audience-icon">👥</div>
+            <h3>The Public</h3>
+            <p>Share everyday observations and community knowledge to enrich scenario planning.</p>
+            <button class="primary" data-action="signin">Sign In</button>
+          </div>
+          <div class="audience-card" data-role="Business Owners">
+            <div class="audience-icon">🏢</div>
+            <h3>Business Owners</h3>
+            <p>Provide business insights to align policies with market-driven implementation needs.</p>
+            <button class="primary" data-action="signin">Sign In</button>
+          </div>
+          <div class="audience-card" data-role="Planners">
+            <div class="audience-icon">✏️</div>
+            <h3>Planners</h3>
+            <p>Co-design policies and review generated scenarios before public deliberation.</p>
+            <button class="primary" data-action="signin">Sign In</button>
+          </div>
+          <div class="audience-card" data-role="Government">
+            <div class="audience-icon">🏛️</div>
+            <h3>Government</h3>
+            <p>Lead decision-making, consolidate feedback, and publish transparent reports.</p>
+            <button class="primary" data-action="signin">Sign In</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="workspace" class="view" aria-label="Workspace">
+        <div class="panel">
+          <h2>Collaborative Workspace</h2>
+          <p>
+            Draft urban policy prompts, review AI-generated scenarios, and capture stakeholder feedback. This
+            space mirrors the iterative co-creation flow highlighted in the PPSS case study.
+          </p>
+          <div class="workspace-content">
+            <div>
+              <label for="policyPrompt">Policy prompt</label>
+              <textarea id="policyPrompt" placeholder="Describe the policy context, goals, and constraints..."></textarea>
+            </div>
+            <div>
+              <label for="aiOutcome">AI-assisted outcome</label>
+              <textarea id="aiOutcome" placeholder="Scenario drafts, synthesized insights, and alternative pathways appear here." readonly></textarea>
+            </div>
+          </div>
+          <div class="workspace-actions">
+            <button class="primary" id="simulateBtn">Simulate Scenario</button>
+            <button class="secondary" id="saveNotesBtn">Save Notes</button>
+          </div>
+          <div class="info" id="workspaceStatus">Provide a policy prompt to explore options. Sign-in is required to persist notes.</div>
+        </div>
+      </section>
+
+      <section id="report" class="view" aria-label="Report">
+        <div class="panel">
+          <h2>Report Center</h2>
+          <p>
+            Consolidate deliberation outcomes, generate exportable summaries, and align final recommendations with
+            stakeholder roles. The structure follows the reporting elements described in the PPSS workflow.
+          </p>
+          <ul class="report-list">
+            <li><strong>Engagement Summary:</strong> Narrative of participant contributions across roles.</li>
+            <li><strong>Scenario Comparison:</strong> Contrasting AI-generated pathways with human feedback.</li>
+            <li><strong>Implementation Readiness:</strong> Steps for policy rollout, monitoring, and evaluation.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="settings" class="view" aria-label="Settings">
+        <div class="panel">
+          <h2>Personal Code Management</h2>
+          <p>
+            Store or update your personal code to access the PPSS workspace. The code is kept locally in your
+            browser to align with the privacy-aware setup described in the study.
+          </p>
+          <form id="codeForm" class="settings-form">
+            <label for="personalCode">Personal code</label>
+            <input type="password" id="personalCode" name="personalCode" required placeholder="Enter a private access code" />
+            <button type="submit" class="primary">Save Code</button>
+          </form>
+          <div class="info" id="codeStatus">No personal code is stored yet.</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal" id="signinModal" role="dialog" aria-modal="true" aria-labelledby="signinTitle" hidden>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="signinTitle">Enter your personal code</h3>
+        <button class="icon-button" id="closeModal" aria-label="Close">✖</button>
+      </div>
+      <p class="modal-role" id="selectedRole"></p>
+      <form id="signinForm" class="signin-form">
+        <label for="signinCode">Personal code</label>
+        <input type="password" id="signinCode" name="signinCode" required placeholder="Enter your saved code" />
+        <div class="form-actions">
+          <button type="submit" class="primary">Sign In</button>
+          <button type="button" class="secondary" id="cancelSignin">Cancel</button>
+        </div>
+        <div class="error" id="signinError" role="alert"></div>
+      </form>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
