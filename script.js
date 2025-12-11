@@ -92,6 +92,8 @@ function openSignin(role) {
 
 function closeSignin() {
   signinModal.hidden = true;
+  signinError.textContent = '';
+  state.role = null;
 }
 
 function saveCode(role, code) {
