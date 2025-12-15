@@ -147,8 +147,19 @@ function App() {
   const [workspaceNote, setWorkspaceNote] = useState('Provide a policy prompt to explore options. Sign-in is required to persist notes.');
   const [policyPrompt, setPolicyPrompt] = useState('');
   const [aiOutcome, setAiOutcome] = useState('');
+  const [problemPrompt, setProblemPrompt] = useState('');
+  const [problemConversation, setProblemConversation] = useState([]);
+  const [problemSummary, setProblemSummary] = useState('');
+  const [loadingSummary, setLoadingSummary] = useState(false);
   const [conversation, setConversation] = useState([]);
   const [sending, setSending] = useState(false);
+  const stageTabs = [
+    'Project Description',
+    'Data Analysis',
+    'Design/Plan Alternatives',
+    'Design/Plan Evaluation',
+    'Design/Plan Decision',
+  ];
 
   useEffect(() => {
     const rolesWithCodes = Object.keys(personalCodes).length;
@@ -165,6 +176,23 @@ function App() {
     const el = document.getElementById('codeStatus');
     if (el) el.textContent = statusLine;
   }, [personalCodes, role, sessionId]);
+
+  useEffect(() => {
+    if (!sessionId) {
+      setProblemConversation([]);
+      setProblemSummary('');
+      return;
+    }
+    fetchJson(`/api/stage/problem-definition/chat?sessionId=${encodeURIComponent(sessionId)}`)
+      .then((data) => {
+        setProblemConversation(data.conversation || []);
+        setProblemSummary(data.summary || '');
+      })
+      .catch(() => {
+        setProblemConversation([]);
+        setProblemSummary('');
+      });
+  }, [sessionId]);
 
   const openSignin = (selectedRole) => {
     setSigninError('');
@@ -235,6 +263,9 @@ function App() {
     setConversation([]);
     setPolicyPrompt('');
     setAiOutcome('');
+    setProblemPrompt('');
+    setProblemConversation([]);
+    setProblemSummary('');
     setWorkspaceNote('Provide a policy prompt to explore options. Sign-in is required to persist notes.');
     setView('home');
     setStatusMessage('Signed out');
@@ -260,6 +291,51 @@ function App() {
       return;
     }
     setWorkspaceNote('Notes saved locally for this session. Export to the Report Center for review.');
+  };
+
+  const sendProblemMessage = async () => {
+    if (!sessionId) {
+      setWorkspaceNote('Sign in to chat with your personalized agent.');
+      return;
+    }
+    if (!problemPrompt.trim()) {
+      setWorkspaceNote('Enter a problem-definition prompt to engage the agent.');
+      return;
+    }
+    setSending(true);
+    try {
+      const data = await fetchJson('/api/stage/problem-definition/chat', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId, message: problemPrompt }),
+      });
+      setProblemConversation(data.conversation || []);
+      setProblemSummary(data.summary || problemSummary);
+      setWorkspaceNote('Problem-definition conversation updated.');
+    } catch (error) {
+      setWorkspaceNote(error.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const generateProblemSummary = async () => {
+    if (!sessionId) {
+      setWorkspaceNote('Sign in to request a cross-user summary.');
+      return;
+    }
+    setLoadingSummary(true);
+    try {
+      const data = await fetchJson('/api/stage/problem-definition/summary', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId }),
+      });
+      setProblemSummary(data.summary || '');
+      setWorkspaceNote('Latest stage-level summary prepared by chat_summary_agent.');
+    } catch (error) {
+      setWorkspaceNote(error.message);
+    } finally {
+      setLoadingSummary(false);
+    }
   };
 
   const sendMessage = async () => {
@@ -320,11 +396,114 @@ function App() {
 
   const Workspace = () => (
     <section className={`view ${view === 'workspace' ? 'active' : ''}`} aria-label="Workspace">
+      <div className="panel stage-header">
+        <div className="stage-meta">
+          <p className="stage-kicker">Problem Definition Stage</p>
+          <h2>Seoul Station Overpass</h2>
+          <p>
+            Following the PPSS study, participants align on the context, problems, and constraints before co-creating alternatives. Use the personalized agent to refine the statement and capture diverse viewpoints.
+          </p>
+        </div>
+        <div className="stage-tabs">
+          {stageTabs.map((tab) => (
+            <span key={tab} className={`stage-pill ${tab === 'Project Description' ? 'active' : ''}`}>
+              {tab}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="problem-grid">
+        <div className="panel project-brief">
+          <div className="brief-header">
+            <div>
+              <h3>Project Description</h3>
+              <p className="muted">Grounded in the case study’s Figure 6 layout.</p>
+            </div>
+            <span className="badge">Resident View</span>
+          </div>
+          <div className="brief-media" role="img" aria-label="Seoul Station overpass aerial view">
+            <div className="image-mask">
+              <img
+                src="https://images.unsplash.com/photo-1526485797145-81f272bb1b83?auto=format&fit=crop&w=900&q=80"
+                alt="Seoul city skyline"
+              />
+            </div>
+          </div>
+          <p>
+            Construction of the Seoul Station Overpass began on March 18, 1969 and opened on August 15, 1970. For over 45 years, it has served as a key corridor but now faces aging infrastructure challenges. Residents feel the corridor separates the city while carrying freight and commuter loads.
+          </p>
+          <div className="two-column">
+            <div>
+              <h4>Summary of Key Solutions</h4>
+              <ul>
+                <li>Improve walking paths and public transit integration.</li>
+                <li>Reduce the dominance of freight traffic in nearby streets.</li>
+                <li>Revitalize neighborhoods through safer crossings and better amenities.</li>
+                <li>Repurpose disused overpass segments into cultural and green spaces.</li>
+              </ul>
+            </div>
+            <div>
+              <h4>Summary of Key Strategies</h4>
+              <ul>
+                <li>Create continuous pedestrian and universal-design access.</li>
+                <li>Introduce curated open spaces with art, planting, and seating.</li>
+                <li>Reuse railway heritage in ways that celebrate local history.</li>
+                <li>Enable citizens to co-design the corridor identity with data-driven guidance.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="panel agent-panel">
+          <div className="agent-header">
+            <div>
+              <p className="muted">Personalized Agent</p>
+              <h3>Problem-definition dialogue</h3>
+            </div>
+            <button className="secondary" onClick={generateProblemSummary} disabled={loadingSummary}>
+              {loadingSummary ? 'Summarizing...' : 'Generate cross-user summary'}
+            </button>
+          </div>
+          <label htmlFor="problemPrompt">Prompt the agent</label>
+          <textarea
+            id="problemPrompt"
+            placeholder="Ask about neighborhood impacts, heritage reuse, or design priorities..."
+            value={problemPrompt}
+            onChange={(e) => setProblemPrompt(e.target.value)}
+          ></textarea>
+          <div className="workspace-actions">
+            <button className="primary" onClick={sendProblemMessage} disabled={sending}>
+              {sending ? 'Sending...' : 'Send to Personalized Agent'}
+            </button>
+            <button className="secondary" onClick={saveNotes}>
+              Save Notes
+            </button>
+          </div>
+          <div className="info" id="workspaceStatus">
+            {workspaceNote}
+          </div>
+          <div className="panel nested">
+            <h4>Conversation</h4>
+            <ChatTranscript conversation={problemConversation} />
+            {systemPrompt ? (
+              <div className="info">
+                Active system prompt: <code>{systemPrompt}</code>
+              </div>
+            ) : null}
+          </div>
+          {problemSummary ? (
+            <div className="summary-card">
+              <div className="summary-title">chat_summary_agent output</div>
+              <p>{problemSummary}</p>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
       <div className="panel">
-        <h2>Collaborative Workspace</h2>
-        <p>
-          Draft urban policy prompts, review AI-generated scenarios, and capture stakeholder feedback. This space mirrors the iterative co-creation flow highlighted in the PPSS case study.
-        </p>
+        <h3>Scenario Drafting</h3>
+        <p className="muted">Optional quick draft area that feeds the workspace simulation.</p>
         <div className="workspace-content">
           <div>
             <label htmlFor="policyPrompt">Policy prompt</label>
@@ -356,17 +535,12 @@ function App() {
             {sending ? 'Sending...' : 'Send to Personalized Agent'}
           </button>
         </div>
-        <div className="info" id="workspaceStatus">
+        <div className="info" id="scenarioStatus">
           {workspaceNote}
         </div>
-        <div className="panel">
-          <h3>Conversation</h3>
+        <div className="panel nested">
+          <h4>Conversation</h4>
           <ChatTranscript conversation={conversation} />
-          {systemPrompt ? (
-            <div className="info">
-              Active system prompt: <code>{systemPrompt}</code>
-            </div>
-          ) : null}
         </div>
       </div>
     </section>
