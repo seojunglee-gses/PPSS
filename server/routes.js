@@ -8,6 +8,7 @@ import {
   readAllStageMessages,
   readLatestStageSummary,
   recordStageSummary,
+  recordAnalysisQuery,
 } from './storage.js';
 import { createChatClient } from './chatgptClient.js';
 
@@ -146,6 +147,61 @@ export function createRouter({ mongoUri, openaiApiKey }) {
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Unable to generate the problem-definition summary' });
+    }
+  });
+
+  router.post('/analysis/query', async (req, res) => {
+    try {
+      const { sessionId, user_question, context_docs = [] } = req.body || {};
+      if (!sessionId || !user_question) {
+        return res.status(400).json({ error: 'sessionId and user_question are required' });
+      }
+
+      const [userId, stakeholder_type] = sessionId.split(':');
+      const session = await loadOrCreateSession(mongoUri, { userId, stakeholder_type });
+
+      const multimodalContext = context_docs.flatMap((doc) => {
+        const parts = [
+          { type: 'text', text: `${doc.title || 'Untitled'}: ${doc.text || ''}`.trim() },
+        ];
+        if (doc.image) {
+          parts.push({ type: 'image_url', image_url: { url: doc.image } });
+        }
+        return parts;
+      });
+
+      const messages = [
+        {
+          role: 'system',
+          content:
+            `${session.systemPrompt} You are in the data analysis stage. Use the provided text and image evidence to answer with succinct bullets, citing the case numbers when relevant.`,
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: `User question: ${user_question}` },
+            { type: 'text', text: 'Context documents provided below.' },
+            ...multimodalContext,
+          ],
+        },
+      ];
+
+      const assistantMessage = await chatClient.send(messages);
+
+      const stored = await recordAnalysisQuery(mongoUri, {
+        sessionId,
+        user_question,
+        context_docs,
+        response: assistantMessage.content,
+      });
+
+      res.json({
+        answer: assistantMessage.content,
+        query: stored,
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Unable to process the analysis query' });
     }
   });
 

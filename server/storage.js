@@ -5,6 +5,7 @@ const COLLECTION_SESSIONS = 'agent_sessions';
 const COLLECTION_CONVERSATIONS = 'conversations';
 const COLLECTION_STAGE_CONVERSATIONS = 'stage_conversations';
 const COLLECTION_STAGE_SUMMARIES = 'stage_summaries';
+const COLLECTION_ANALYSIS_QUERIES = 'analysis_queries';
 
 let client;
 
@@ -38,6 +39,11 @@ export async function getStageConversationCollection(uri) {
 export async function getStageSummaryCollection(uri) {
   const db = await getDb(uri);
   return db.collection(COLLECTION_STAGE_SUMMARIES);
+}
+
+export async function getAnalysisCollection(uri) {
+  const db = await getDb(uri);
+  return db.collection(COLLECTION_ANALYSIS_QUERIES);
 }
 
 export async function recordSession(uri, session) {
@@ -86,6 +92,13 @@ export async function readLatestStageSummary(uri, stage) {
   const collection = await getStageSummaryCollection(uri);
   const doc = await collection.find({ stage }).sort({ createdAt: -1 }).limit(1).next();
   return doc?.summary || '';
+}
+
+export async function recordAnalysisQuery(uri, payload) {
+  const collection = await getAnalysisCollection(uri);
+  const entry = { ...payload, createdAt: new Date().toISOString() };
+  await collection.insertOne(entry);
+  return entry;
 }
 
 export async function getSession(uri, sessionId) {

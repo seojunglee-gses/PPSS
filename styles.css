@@ -22,7 +22,7 @@ body {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: 260px 1fr;
   min-height: 100vh;
 }
 
@@ -265,6 +265,88 @@ body {
   border-color: var(--accent);
 }
 
+.analysis-layout {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 18px;
+  margin: 18px 0;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.case-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.case-tab {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--white);
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.case-tab.active {
+  background: var(--accent);
+  color: var(--white);
+  border-color: var(--accent);
+}
+
+.evidence-body {
+  display: grid;
+  grid-template-columns: 0.85fr 1fr;
+  gap: 14px;
+  align-items: center;
+}
+
+.evidence-media img {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.evidence-content h4 {
+  margin: 4px 0 6px;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.8px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.analysis-chat .panel.nested {
+  margin-top: 10px;
+}
+
+.json-block {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #0f172a;
+  color: #e2e8f0;
+  overflow: auto;
+}
+
+.json-block pre {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
 .problem-grid {
   display: grid;
   grid-template-columns: 1.1fr 1fr;
@@ -467,6 +549,14 @@ textarea {
 
   .workspace-actions {
     flex-direction: column;
+  }
+
+  .analysis-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .evidence-body {
+    grid-template-columns: 1fr;
   }
 
   .problem-grid {

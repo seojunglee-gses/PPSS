@@ -153,6 +153,10 @@ function App() {
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [conversation, setConversation] = useState([]);
   const [sending, setSending] = useState(false);
+  const [analysisCaseIndex, setAnalysisCaseIndex] = useState(0);
+  const [analysisQuestion, setAnalysisQuestion] = useState('');
+  const [analysisConversation, setAnalysisConversation] = useState([]);
+  const [analysisResult, setAnalysisResult] = useState('');
   const stageTabs = [
     'Project Description',
     'Data Analysis',
@@ -363,6 +367,105 @@ function App() {
     }
   };
 
+  const analysisCases = [
+    {
+      title: 'Gyeongui Line Forest Park',
+      subtitle: 'Park summary',
+      image:
+        'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=1200&q=80',
+      description:
+        'Starting with the Daehyeon-dong section in March 2012, the Gyeongui Line Forest Park, which deviates from the existing railway tracks, was built in 7 sections (4.3 km) over 9 years. The park provides an essential green corridor and leisure space for citizens after the transformation of defunct railway areas.',
+      strategies: [
+        'Affordable housing policies limit rent increases for local renters.',
+        'Community participation plans include citizen-led place making.',
+        'Design/plan policies integrate inclusive programs for public life.',
+        'Urban regeneration programs prevent speculative displacement and preserve local identity.',
+      ],
+      questions: [
+        'How could similar regeneration practices prevent resident displacement in Seoul Station overpass?',
+        'Which design elements protect local businesses while attracting new visitors?',
+      ],
+    },
+    {
+      title: 'Case 2: Elevated Greenway',
+      subtitle: 'Reclaimed transit corridor',
+      image:
+        'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1200&q=80',
+      description:
+        'An elevated freight route converted into a linear park with mobility lanes and cultural pockets. Operations prioritized continuous access, shade, and active frontage with community vendors.',
+      strategies: [
+        'Blend slow mobility lanes with planting for climate resilience.',
+        'Stage construction phases to minimize disruption to commuters.',
+        'Pair greenway programs with night-time activation for safety.',
+        'Use tactical urbanism pilots to validate permanent features.',
+      ],
+      questions: [
+        'How can phased delivery maintain access for freight and pedestrians?',
+        'What participatory tools help select amenities for each block?',
+      ],
+    },
+    {
+      title: 'Case 3: Waterfront Rail Park',
+      subtitle: 'Coastal regeneration',
+      image:
+        'https://images.unsplash.com/photo-1505761671935-60b3a7427bad?auto=format&fit=crop&w=1200&q=80',
+      description:
+        'A decommissioned coastal rail line transformed into a waterfront promenade combining flood-protection berms, community plazas, and habitat nodes.',
+      strategies: [
+        'Integrate blue-green infrastructure to manage storm surges.',
+        'Preserve maritime heritage through interpretive signage and art.',
+        'Align vendor permits with local cooperatives to reduce displacement.',
+        'Link monitoring data to adaptive maintenance budgets.',
+      ],
+      questions: [
+        'How should coastal precedents inform inland overpass retrofits?',
+        'What funding mechanisms support upkeep while remaining equitable?',
+      ],
+    },
+  ];
+
+  const activeCase = analysisCases[analysisCaseIndex];
+
+  const sendAnalysisQuery = async () => {
+    if (!sessionId) {
+      setWorkspaceNote('Sign in to ask analysis questions.');
+      return;
+    }
+    if (!analysisQuestion.trim()) {
+      setWorkspaceNote('Enter a question for the personalized agent.');
+      return;
+    }
+
+    setSending(true);
+    try {
+      const context_docs = analysisCases.map((entry, idx) => ({
+        title: `${idx + 1}. ${entry.title}`,
+        text: `${entry.subtitle}. ${entry.description} Key strategies: ${entry.strategies.join('; ')}`,
+        image: entry.image,
+      }));
+
+      const data = await fetchJson('/api/analysis/query', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId, user_question: analysisQuestion, context_docs }),
+      });
+
+      const assistantMessage = data?.answer || 'No response returned yet.';
+      const nextConversation = [
+        ...analysisConversation,
+        { role: 'user', content: analysisQuestion },
+        { role: 'assistant', content: assistantMessage },
+      ];
+      setAnalysisConversation(nextConversation);
+      setAnalysisResult(JSON.stringify(data, null, 2));
+      setWorkspaceNote('Analysis response received from the multimodal agent.');
+      setAnalysisQuestion('');
+    } catch (error) {
+      setWorkspaceNote(error.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
   const Home = () => (
     <section className={`view ${view === 'home' ? 'active' : ''}`} aria-label="Home">
       <div className="notice">Sign in with your personal code to move into the collaborative workspace.</div>
@@ -398,18 +501,102 @@ function App() {
     <section className={`view ${view === 'workspace' ? 'active' : ''}`} aria-label="Workspace">
       <div className="panel stage-header">
         <div className="stage-meta">
-          <p className="stage-kicker">Problem Definition Stage</p>
+          <p className="stage-kicker">Data Analysis Stage</p>
           <h2>Seoul Station Overpass</h2>
           <p>
-            Following the PPSS study, participants align on the context, problems, and constraints before co-creating alternatives. Use the personalized agent to refine the statement and capture diverse viewpoints.
+            Review precedent cases, interrogate the data with your personalized agent, and extract insights before moving toward design and evaluation. The layout mirrors the PPSS workflow with left-hand evidence and right-hand agent dialog.
           </p>
         </div>
         <div className="stage-tabs">
           {stageTabs.map((tab) => (
-            <span key={tab} className={`stage-pill ${tab === 'Project Description' ? 'active' : ''}`}>
+            <span key={tab} className={`stage-pill ${tab === 'Data Analysis' ? 'active' : ''}`}>
               {tab}
             </span>
           ))}
+        </div>
+      </div>
+
+      <div className="analysis-layout">
+        <div className="panel evidence-panel">
+          <div className="panel-header">
+            <div>
+              <p className="muted">Case Library</p>
+              <h3>Comparable precedents</h3>
+            </div>
+            <div className="case-tabs">
+              {analysisCases.map((entry, idx) => (
+                <button
+                  key={entry.title}
+                  className={`case-tab ${analysisCaseIndex === idx ? 'active' : ''}`}
+                  onClick={() => setAnalysisCaseIndex(idx)}
+                  aria-label={`Case ${idx + 1}`}
+                >
+                  {idx + 1}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="evidence-body">
+            <div className="evidence-media" role="img" aria-label={activeCase.title}>
+              <img src={activeCase.image} alt={activeCase.title} />
+            </div>
+            <div className="evidence-content">
+              <p className="eyebrow">{activeCase.subtitle}</p>
+              <h4>{activeCase.title}</h4>
+              <p>{activeCase.description}</p>
+              <div className="two-column">
+                <div>
+                  <h5>Summary of strategies</h5>
+                  <ul>
+                    {activeCase.strategies.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <h5>Prompt ideas</h5>
+                  <ul>
+                    {activeCase.questions.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="panel agent-panel analysis-chat">
+          <div className="agent-header">
+            <div>
+              <p className="muted">Multimodal personalized agent</p>
+              <h3>Data Analysis dialogue</h3>
+            </div>
+            {systemPrompt ? <span className="badge">{role || 'Stakeholder'} context</span> : null}
+          </div>
+          <label htmlFor="analysisQuestion">Ask about the cases</label>
+          <textarea
+            id="analysisQuestion"
+            placeholder="How do these cases reduce displacement risk while activating public life?"
+            value={analysisQuestion}
+            onChange={(e) => setAnalysisQuestion(e.target.value)}
+          ></textarea>
+          <div className="workspace-actions">
+            <button className="primary" onClick={sendAnalysisQuery} disabled={sending}>
+              {sending ? 'Sending...' : 'Ask personalized agent'}
+            </button>
+            <button className="secondary" onClick={() => setAnalysisResult('')}>Clear result</button>
+          </div>
+          <div className="panel nested">
+            <h4>Conversation</h4>
+            <ChatTranscript conversation={analysisConversation} />
+          </div>
+          {analysisResult ? (
+            <div className="json-block" role="region" aria-live="polite">
+              <div className="summary-title">Latest /analysis/query response</div>
+              <pre>{analysisResult}</pre>
+            </div>
+          ) : null}
         </div>
       </div>
 
