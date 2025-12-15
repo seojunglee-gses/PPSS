@@ -5,6 +5,13 @@ const defaultRoleCodes = {
   'The Public': '3000',
 };
 
+const stageSteps = [
+  { id: 'project', label: 'Project Description', icon: '🗂️' },
+  { id: 'analysis', label: 'Data Analysis', icon: '📊' },
+  { id: 'design', label: 'Design/Plan Alternatives', icon: '🎨' },
+  { id: 'evaluation', label: 'Design/Plan Evaluation', icon: '✅' },
+];
+
 const API_BASE = window.API_BASE_URL || 'http://localhost:3001';
 
 function fetchJson(url, options) {
@@ -122,11 +129,39 @@ function ChatTranscript({ conversation }) {
   return (
     <div className="chat-log">
       {conversation.map((entry, index) => (
-        <div key={index} className={`chat-entry ${entry.role}`}>
-          <div className="chat-meta">{entry.role}</div>
-          <div className="chat-message">{entry.content}</div>
+        <div
+          key={index}
+          className={`chat-row ${entry.role === 'user' ? 'align-right' : 'align-left'}`}
+        >
+          <div className={`chat-entry bubble ${entry.role}`}>
+            <div className="chat-meta">
+              {entry.role === 'user' ? 'You' : entry.role === 'assistant' ? 'Personalized Agent' : 'System'}
+            </div>
+            <div className="chat-message">{entry.content}</div>
+          </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function StageProgress({ currentStage }) {
+  const activeIndex = stageSteps.findIndex((step) => step.id === currentStage);
+  return (
+    <div className="stage-progress" role="list" aria-label="PPSS stage progress">
+      {stageSteps.map((step, index) => {
+        const status =
+          index < activeIndex ? 'done' : index === activeIndex ? 'active' : 'upcoming';
+        return (
+          <div key={step.id} className={`stage-node ${status}`} role="listitem">
+            <div className="stage-icon" aria-hidden="true">
+              {step.icon}
+            </div>
+            <div className="stage-label">{step.label}</div>
+            {index < stageSteps.length - 1 ? <span className="stage-connector" aria-hidden="true"></span> : null}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -163,13 +198,6 @@ function App() {
   const [designGallery, setDesignGallery] = useState([]);
   const [designStatus, setDesignStatus] = useState('');
   const [designLoading, setDesignLoading] = useState(false);
-  const stageTabs = [
-    'Project Description',
-    'Data Analysis',
-    'Design/Plan Alternatives',
-    'Design/Plan Evaluation',
-    'Design/Plan Decision',
-  ];
 
   useEffect(() => {
     const rolesWithCodes = Object.keys(personalCodes).length;
@@ -576,16 +604,7 @@ function App() {
             Review precedent cases, interrogate the data with your personalized agent, and translate ideas into visual alternatives before evaluation. The layout mirrors the PPSS workflow with left-hand evidence and right-hand agent dialog.
           </p>
         </div>
-        <div className="stage-tabs">
-          {stageTabs.map((tab) => (
-            <span
-              key={tab}
-              className={`stage-pill ${tab === 'Data Analysis' || tab === 'Design/Plan Alternatives' ? 'active' : ''}`}
-            >
-              {tab}
-            </span>
-          ))}
-        </div>
+        <StageProgress currentStage="design" />
       </div>
 
       <div className="analysis-layout">
