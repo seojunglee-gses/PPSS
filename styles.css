@@ -344,3 +344,50 @@ textarea {
     flex-direction: column;
   }
 }
+
+.ghost {
+  background: transparent;
+  color: var(--accent);
+  border: 1px dashed var(--accent);
+}
+
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.chat-entry {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--white);
+  box-shadow: var(--shadow);
+}
+
+.chat-entry .chat-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.chat-entry .chat-message {
+  white-space: pre-wrap;
+}
+
+.chat-entry.user {
+  border-color: #d5e4ff;
+  background: #f3f6ff;
+}
+
+.chat-entry.assistant {
+  border-color: #ffe3c4;
+  background: #fff8ef;
+}
+
+code {
+  background: #f1f2f6;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
