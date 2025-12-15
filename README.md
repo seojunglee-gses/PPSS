@@ -8,6 +8,7 @@ A React + Node.js prototype for the ChatGPT-assisted Public Participation Suppor
 - Workspace with simulation, notes, and a personalized agent chat transcript per user session.
 - Workspace Problem Definition stage with project brief (Figure 6 layout), personalized agent dialogue, and chat_summary_agent summaries aggregated across users.
 - Workspace Data Analysis stage with precedent tabs (text + imagery), multimodal agent Q&A, and rendered JSON responses from the analysis API.
+- Workspace Design/Plan Alternatives stage with agent-authored image prompts, prompt refinement, and gallery storage for generated images per session.
 - Server endpoints that load `agent_profile` on login, generate a system prompt from the stakeholder type, and persist conversation history in MongoDB.
 
 ## Running the server
@@ -39,6 +40,12 @@ The Node API exposes stage-specific routes for the workspace UI:
 ### Data Analysis API
 
 - `POST /api/analysis/query` — accept `sessionId`, `user_question`, and `context_docs` (including image URLs). Sends a multimodal request to the personalized agent, stores the query/response, and returns the JSON answer consumed by the UI.
+
+### Design/Plan Alternatives API
+
+- `GET /api/design/alternatives?sessionId=<id>` — fetch the gallery of prompts and generated image URLs for the session.
+- `POST /api/design/alternatives/generate` — accept `{ sessionId, idea }`, craft a design image prompt, call the image generator, persist the prompt + URLs, and return the updated gallery.
+- `POST /api/design/alternatives/refine` — accept `{ sessionId, prompt, refinement }`, produce a refined prompt honoring the tweak, regenerate images, store the record, and return the refreshed gallery.
 
 ## Running the client
 The client is a single-page React experience rendered via CDN. Serve the repository root with any static file server so the browser can load `index.html` and make requests to the Node API (defaulting to `http://localhost:3001`). Set `window.API_BASE_URL` in a script tag if the API runs elsewhere. For quick local preview:

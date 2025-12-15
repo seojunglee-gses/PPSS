@@ -157,6 +157,12 @@ function App() {
   const [analysisQuestion, setAnalysisQuestion] = useState('');
   const [analysisConversation, setAnalysisConversation] = useState([]);
   const [analysisResult, setAnalysisResult] = useState('');
+  const [designIdea, setDesignIdea] = useState('');
+  const [designPrompt, setDesignPrompt] = useState('');
+  const [designRefinement, setDesignRefinement] = useState('');
+  const [designGallery, setDesignGallery] = useState([]);
+  const [designStatus, setDesignStatus] = useState('');
+  const [designLoading, setDesignLoading] = useState(false);
   const stageTabs = [
     'Project Description',
     'Data Analysis',
@@ -196,6 +202,14 @@ function App() {
         setProblemConversation([]);
         setProblemSummary('');
       });
+
+    if (!sessionId) {
+      setDesignGallery([]);
+      return;
+    }
+    fetchJson(`/api/design/alternatives?sessionId=${encodeURIComponent(sessionId)}`)
+      .then((data) => setDesignGallery(data.gallery || []))
+      .catch(() => setDesignGallery([]));
   }, [sessionId]);
 
   const openSignin = (selectedRole) => {
@@ -466,6 +480,61 @@ function App() {
     }
   };
 
+  const generateDesignAlternative = async () => {
+    if (!sessionId) {
+      setDesignStatus('Sign in to generate design alternatives.');
+      return;
+    }
+    if (!designIdea.trim()) {
+      setDesignStatus('Provide an idea or sketch description to synthesize a prompt.');
+      return;
+    }
+    setDesignLoading(true);
+    try {
+      const data = await fetchJson('/api/design/alternatives/generate', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId, idea: designIdea }),
+      });
+      setDesignPrompt(data.prompt || '');
+      setDesignGallery(data.gallery || []);
+      setDesignStatus('Image prompt generated with supporting gallery previews.');
+    } catch (error) {
+      setDesignStatus(error.message);
+    } finally {
+      setDesignLoading(false);
+    }
+  };
+
+  const refineDesignPrompt = async () => {
+    if (!sessionId) {
+      setDesignStatus('Sign in to refine image prompts.');
+      return;
+    }
+    if (!designPrompt.trim()) {
+      setDesignStatus('Generate a prompt first before refinement.');
+      return;
+    }
+    if (!designRefinement.trim()) {
+      setDesignStatus('Describe how you want the prompt adjusted.');
+      return;
+    }
+    setDesignLoading(true);
+    try {
+      const data = await fetchJson('/api/design/alternatives/refine', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId, prompt: designPrompt, refinement: designRefinement }),
+      });
+      setDesignPrompt(data.prompt || '');
+      setDesignGallery(data.gallery || []);
+      setDesignRefinement('');
+      setDesignStatus('Prompt refined and new variants added to the gallery.');
+    } catch (error) {
+      setDesignStatus(error.message);
+    } finally {
+      setDesignLoading(false);
+    }
+  };
+
   const Home = () => (
     <section className={`view ${view === 'home' ? 'active' : ''}`} aria-label="Home">
       <div className="notice">Sign in with your personal code to move into the collaborative workspace.</div>
@@ -501,15 +570,18 @@ function App() {
     <section className={`view ${view === 'workspace' ? 'active' : ''}`} aria-label="Workspace">
       <div className="panel stage-header">
         <div className="stage-meta">
-          <p className="stage-kicker">Data Analysis Stage</p>
+          <p className="stage-kicker">Data Analysis + Design/Plan Alternatives</p>
           <h2>Seoul Station Overpass</h2>
           <p>
-            Review precedent cases, interrogate the data with your personalized agent, and extract insights before moving toward design and evaluation. The layout mirrors the PPSS workflow with left-hand evidence and right-hand agent dialog.
+            Review precedent cases, interrogate the data with your personalized agent, and translate ideas into visual alternatives before evaluation. The layout mirrors the PPSS workflow with left-hand evidence and right-hand agent dialog.
           </p>
         </div>
         <div className="stage-tabs">
           {stageTabs.map((tab) => (
-            <span key={tab} className={`stage-pill ${tab === 'Data Analysis' ? 'active' : ''}`}>
+            <span
+              key={tab}
+              className={`stage-pill ${tab === 'Data Analysis' || tab === 'Design/Plan Alternatives' ? 'active' : ''}`}
+            >
               {tab}
             </span>
           ))}
@@ -685,6 +757,80 @@ function App() {
               <p>{problemSummary}</p>
             </div>
           ) : null}
+        </div>
+      </div>
+
+      <div className="panel design-header">
+        <div>
+          <p className="stage-kicker">Stage 3 · Design/Plan Alternatives</p>
+          <h3>Generate visual options with a personalized agent</h3>
+          <p className="muted">
+            The agent converts your idea into a ready-to-render image prompt, calls the image generator, and stores the prompt + URLs for your session.
+          </p>
+        </div>
+      </div>
+
+      <div className="design-layout">
+        <div className="panel design-form">
+          <h4>Idea capture & prompt synthesis</h4>
+          <label htmlFor="designIdea">Describe your idea</label>
+          <textarea
+            id="designIdea"
+            placeholder="e.g., Convert the overpass into a terraced urban forest with night lighting and kiosks"
+            value={designIdea}
+            onChange={(e) => setDesignIdea(e.target.value)}
+          ></textarea>
+          <label htmlFor="designPrompt">Generated image prompt</label>
+          <textarea id="designPrompt" value={designPrompt} readOnly placeholder="Prompt will appear here"></textarea>
+          <div className="refinement-row">
+            <input
+              type="text"
+              id="designRefinement"
+              placeholder="Ask for refinements, e.g., 'make it more accessible and brighter'"
+              value={designRefinement}
+              onChange={(e) => setDesignRefinement(e.target.value)}
+            />
+            <button className="secondary" onClick={refineDesignPrompt} disabled={designLoading}>
+              {designLoading ? 'Working...' : 'Refine prompt'}
+            </button>
+          </div>
+          <div className="workspace-actions">
+            <button className="primary" onClick={generateDesignAlternative} disabled={designLoading}>
+              {designLoading ? 'Generating...' : 'Generate alternatives'}
+            </button>
+            <div className="info inline">{designStatus || 'Prompts and images are saved with your session.'}</div>
+          </div>
+        </div>
+        <div className="panel design-gallery">
+          <div className="design-gallery-header">
+            <h4>Gallery</h4>
+            <p className="muted">Latest prompts and generated URLs</p>
+          </div>
+          {designGallery.length === 0 ? (
+            <div className="info">No images yet. Generate a prompt to populate the gallery.</div>
+          ) : (
+            <div className="gallery-grid">
+              {designGallery.map((entry, idx) => (
+                <div key={idx} className="gallery-card">
+                  <div className="gallery-meta">
+                    <div className="pill">{entry.refinement ? 'Refined' : 'Base'}</div>
+                    <div className="timestamp">{new Date(entry.createdAt).toLocaleString()}</div>
+                  </div>
+                  <p className="gallery-prompt">{entry.prompt}</p>
+                  <div className="gallery-images">
+                    {(entry.images || []).map((url, imageIdx) => (
+                      <img
+                        key={imageIdx}
+                        src={url}
+                        alt={entry.prompt}
+                        onClick={() => setDesignPrompt(entry.prompt)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

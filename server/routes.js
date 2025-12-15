@@ -9,6 +9,8 @@ import {
   readLatestStageSummary,
   recordStageSummary,
   recordAnalysisQuery,
+  recordDesignGeneration,
+  readDesignGallery,
 } from './storage.js';
 import { createChatClient } from './chatgptClient.js';
 
@@ -16,6 +18,7 @@ export function createRouter({ mongoUri, openaiApiKey }) {
   const router = express.Router();
   const chatClient = createChatClient(openaiApiKey);
   const problemStage = 'problem-definition';
+  const designStage = 'design-plan-alternatives';
 
   router.post('/login', async (req, res) => {
     try {
@@ -202,6 +205,98 @@ export function createRouter({ mongoUri, openaiApiKey }) {
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: 'Unable to process the analysis query' });
+    }
+  });
+
+  router.get('/design/alternatives', async (req, res) => {
+    try {
+      const { sessionId } = req.query;
+      if (!sessionId) {
+        return res.status(400).json({ error: 'sessionId is required' });
+      }
+      const gallery = await readDesignGallery(mongoUri, sessionId);
+      res.json({ gallery });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Unable to load the design gallery' });
+    }
+  });
+
+  router.post('/design/alternatives/generate', async (req, res) => {
+    try {
+      const { sessionId, idea } = req.body || {};
+      if (!sessionId || !idea) {
+        return res.status(400).json({ error: 'sessionId and idea are required' });
+      }
+
+      const [userId, stakeholder_type] = sessionId.split(':');
+      const session = await loadOrCreateSession(mongoUri, { userId, stakeholder_type });
+
+      const messages = [
+        { role: 'system', content: `${session.systemPrompt} You are in stage 3: Design/Plan alternatives. Translate user ideas into vivid text-to-image prompts with spatial cues, composition, and material hints.` },
+        {
+          role: 'user',
+          content: `Analyze this idea and return a single, production-ready image prompt with camera and mood details.\nIdea: ${idea}`,
+        },
+      ];
+
+      const assistantMessage = await chatClient.send(messages);
+      const prompt = assistantMessage.content;
+      const images = await chatClient.generateImages(prompt);
+
+      const record = await recordDesignGeneration(mongoUri, {
+        sessionId,
+        stage: designStage,
+        idea,
+        prompt,
+        refinement: null,
+        images,
+      });
+
+      const gallery = await readDesignGallery(mongoUri, sessionId);
+      res.json({ prompt, images, record, gallery });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Unable to generate a design alternative' });
+    }
+  });
+
+  router.post('/design/alternatives/refine', async (req, res) => {
+    try {
+      const { sessionId, prompt, refinement } = req.body || {};
+      if (!sessionId || !prompt || !refinement) {
+        return res.status(400).json({ error: 'sessionId, prompt, and refinement are required' });
+      }
+
+      const [userId, stakeholder_type] = sessionId.split(':');
+      const session = await loadOrCreateSession(mongoUri, { userId, stakeholder_type });
+
+      const messages = [
+        { role: 'system', content: `${session.systemPrompt} You are refining a stage 3 image prompt. Honor the user's tweak while preserving feasibility.` },
+        {
+          role: 'user',
+          content: `Current prompt:\n${prompt}\n\nRefine it to be "${refinement}" while keeping site, materials, and mood coherent. Return only the updated image prompt.`,
+        },
+      ];
+
+      const assistantMessage = await chatClient.send(messages);
+      const refinedPrompt = assistantMessage.content;
+      const images = await chatClient.generateImages(refinedPrompt);
+
+      const record = await recordDesignGeneration(mongoUri, {
+        sessionId,
+        stage: designStage,
+        idea: prompt,
+        prompt: refinedPrompt,
+        refinement,
+        images,
+      });
+
+      const gallery = await readDesignGallery(mongoUri, sessionId);
+      res.json({ prompt: refinedPrompt, images, record, gallery });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Unable to refine the design prompt' });
     }
   });
 

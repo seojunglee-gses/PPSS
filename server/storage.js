@@ -6,6 +6,7 @@ const COLLECTION_CONVERSATIONS = 'conversations';
 const COLLECTION_STAGE_CONVERSATIONS = 'stage_conversations';
 const COLLECTION_STAGE_SUMMARIES = 'stage_summaries';
 const COLLECTION_ANALYSIS_QUERIES = 'analysis_queries';
+const COLLECTION_DESIGN_GENERATIONS = 'design_generations';
 
 let client;
 
@@ -44,6 +45,11 @@ export async function getStageSummaryCollection(uri) {
 export async function getAnalysisCollection(uri) {
   const db = await getDb(uri);
   return db.collection(COLLECTION_ANALYSIS_QUERIES);
+}
+
+export async function getDesignCollection(uri) {
+  const db = await getDb(uri);
+  return db.collection(COLLECTION_DESIGN_GENERATIONS);
 }
 
 export async function recordSession(uri, session) {
@@ -104,4 +110,20 @@ export async function recordAnalysisQuery(uri, payload) {
 export async function getSession(uri, sessionId) {
   const collection = await getSessionCollection(uri);
   return collection.findOne({ sessionId });
+}
+
+export async function recordDesignGeneration(uri, payload) {
+  const collection = await getDesignCollection(uri);
+  const entry = { ...payload, createdAt: new Date().toISOString() };
+  await collection.insertOne(entry);
+  return entry;
+}
+
+export async function readDesignGallery(uri, sessionId) {
+  const collection = await getDesignCollection(uri);
+  const docs = await collection
+    .find({ sessionId })
+    .sort({ createdAt: -1 })
+    .toArray();
+  return docs;
 }
