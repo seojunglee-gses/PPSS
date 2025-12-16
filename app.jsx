@@ -306,7 +306,7 @@ function App() {
     localStorage.setItem('ppssCodes', JSON.stringify(next));
   };
 
-  const handleSigninSubmit = async () => {
+  const handleSigninSubmit = () => {
     const expected = requireCode();
     if (!expected) return;
     if (!signinState.code) {
@@ -317,28 +317,23 @@ function App() {
       setSigninError('The code does not match the saved personal code.');
       return;
     }
-    try {
-      const userKey = `ppssUser-${role || 'guest'}`;
-      const derivedUserId = localStorage.getItem(userKey) || `${role || 'user'}-${Date.now()}`;
-      localStorage.setItem(userKey, derivedUserId);
-      const payload = {
-        userId: derivedUserId,
-        stakeholder_type: role,
-      };
-      const data = await fetchJson('/api/login', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-      setSessionId(data.sessionId);
-      setSystemPrompt(data.systemPrompt);
-      setConversation(data.conversation || []);
-      setStatusMessage(`${role} · Signed in`);
-      setWorkspaceNote('You are authenticated. Draft or save notes to capture policy discussions.');
-      setView('workflow');
-      closeSignin();
-    } catch (error) {
-      setSigninError(error.message);
-    }
+    const userKey = `ppssUser-${role || 'guest'}`;
+    const derivedUserId = localStorage.getItem(userKey) || `${role || 'user'}-${Date.now()}`;
+    localStorage.setItem(userKey, derivedUserId);
+    const promptTemplate =
+      '너는 {stakeholder_type}에게 특화된 personalized agent이다. 너의 임무는 사용자 질문을 이해하고 단계별 계획, 문제정의, 데이터해석, 디자인생성 등을 지원하는 것이다.';
+    const derivedPrompt = promptTemplate.replace(
+      '{stakeholder_type}',
+      role || 'stakeholder',
+    );
+    setSigninError('');
+    setSessionId(derivedUserId);
+    setSystemPrompt(derivedPrompt);
+    setConversation([]);
+    setStatusMessage(`${role} · Signed in`);
+    setWorkspaceNote('You are authenticated. Draft or save notes to capture policy discussions.');
+    setView('workflow');
+    closeSignin();
   };
 
   const logout = () => {
