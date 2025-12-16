@@ -33,9 +33,13 @@ const workflowStages = [
   },
 ];
 
-const API_BASES = [window.API_BASE_URL, window.location?.origin, 'http://localhost:3001']
-  .filter(Boolean)
-  .filter((value, index, self) => self.indexOf(value) === index);
+const LOCAL_ONLY = Boolean(window?.LOCAL_ONLY_MODE ?? window?.LOCAL_ONLY ?? false);
+
+const API_BASES = LOCAL_ONLY
+  ? []
+  : [window.API_BASE_URL, window.location?.origin, 'http://localhost:3001']
+      .filter(Boolean)
+      .filter((value, index, self) => self.indexOf(value) === index);
 
 async function fetchJson(url, options) {
   let lastError = null;
@@ -256,6 +260,12 @@ function App() {
       setProblemSummary('');
       return;
     }
+    if (LOCAL_ONLY) {
+      setProblemConversation([]);
+      setProblemSummary('');
+      setDesignGallery([]);
+      return;
+    }
     fetchJson(`/api/stage/problem-definition/chat?sessionId=${encodeURIComponent(sessionId)}`)
       .then((data) => {
         setProblemConversation(data.conversation || []);
@@ -383,13 +393,31 @@ function App() {
     }
     setSending(true);
     try {
-      const data = await fetchJson('/api/stage/problem-definition/chat', {
-        method: 'POST',
-        body: JSON.stringify({ sessionId, message: problemPrompt }),
-      });
-      setProblemConversation(data.conversation || []);
-      setProblemSummary(data.summary || problemSummary);
-      setWorkspaceNote('Problem-definition conversation updated.');
+      if (LOCAL_ONLY) {
+        const nextConversation = [
+          ...problemConversation,
+          { role: 'user', content: problemPrompt },
+          {
+            role: 'assistant',
+            content:
+              'Local-only mode: simulating a problem-definition response. In server mode, this would persist to MongoDB.',
+          },
+        ];
+        setProblemConversation(nextConversation);
+        setProblemSummary(
+          problemSummary ||
+            'Local-only mode summary placeholder. Start the server to aggregate and persist stage conversations.',
+        );
+        setWorkspaceNote('Problem-definition conversation updated locally.');
+      } else {
+        const data = await fetchJson('/api/stage/problem-definition/chat', {
+          method: 'POST',
+          body: JSON.stringify({ sessionId, message: problemPrompt }),
+        });
+        setProblemConversation(data.conversation || []);
+        setProblemSummary(data.summary || problemSummary);
+        setWorkspaceNote('Problem-definition conversation updated.');
+      }
     } catch (error) {
       setWorkspaceNote(error.message);
     } finally {
@@ -404,12 +432,20 @@ function App() {
     }
     setLoadingSummary(true);
     try {
-      const data = await fetchJson('/api/stage/problem-definition/summary', {
-        method: 'POST',
-        body: JSON.stringify({ sessionId }),
-      });
-      setProblemSummary(data.summary || '');
-      setWorkspaceNote('Latest stage-level summary prepared by chat_summary_agent.');
+      if (LOCAL_ONLY) {
+        setProblemSummary(
+          problemSummary ||
+            'Local-only mode summary: start the server to call chat_summary_agent across all stored sessions.',
+        );
+        setWorkspaceNote('Summary prepared locally. Start the backend for persisted, cross-user aggregation.');
+      } else {
+        const data = await fetchJson('/api/stage/problem-definition/summary', {
+          method: 'POST',
+          body: JSON.stringify({ sessionId }),
+        });
+        setProblemSummary(data.summary || '');
+        setWorkspaceNote('Latest stage-level summary prepared by chat_summary_agent.');
+      }
     } catch (error) {
       setWorkspaceNote(error.message);
     } finally {
@@ -428,13 +464,25 @@ function App() {
     }
     setSending(true);
     try {
-      const data = await fetchJson('/api/chat', {
-        method: 'POST',
-        body: JSON.stringify({ sessionId, message: policyPrompt }),
-      });
-      setConversation(data.conversation || []);
-      setAiOutcome(data.assistantMessage?.content || aiOutcome);
-      setWorkspaceNote('Conversation updated with the personalized agent response.');
+      if (LOCAL_ONLY) {
+        const localReply =
+          'Local-only mode: this simulates an assistant reply. Start the server to store and retrieve full transcripts.';
+        setConversation([
+          ...conversation,
+          { role: 'user', content: policyPrompt },
+          { role: 'assistant', content: localReply },
+        ]);
+        setAiOutcome(localReply);
+        setWorkspaceNote('Conversation updated locally.');
+      } else {
+        const data = await fetchJson('/api/chat', {
+          method: 'POST',
+          body: JSON.stringify({ sessionId, message: policyPrompt }),
+        });
+        setConversation(data.conversation || []);
+        setAiOutcome(data.assistantMessage?.content || aiOutcome);
+        setWorkspaceNote('Conversation updated with the personalized agent response.');
+      }
     } catch (error) {
       setWorkspaceNote(error.message);
     } finally {
@@ -519,21 +567,37 @@ function App() {
         image: entry.image,
       }));
 
-      const data = await fetchJson('/api/analysis/query', {
-        method: 'POST',
-        body: JSON.stringify({ sessionId, user_question: analysisQuestion, context_docs }),
-      });
+      if (LOCAL_ONLY) {
+        const assistantMessage =
+          'Local-only mode: simulated multimodal answer. Start the backend to enable LLM and database calls.';
+        const nextConversation = [
+          ...analysisConversation,
+          { role: 'user', content: analysisQuestion },
+          { role: 'assistant', content: assistantMessage },
+        ];
+        setAnalysisConversation(nextConversation);
+        setAnalysisResult(
+          JSON.stringify({ answer: assistantMessage, context_docs: context_docs.length }, null, 2),
+        );
+        setWorkspaceNote('Analysis response generated locally.');
+        setAnalysisQuestion('');
+      } else {
+        const data = await fetchJson('/api/analysis/query', {
+          method: 'POST',
+          body: JSON.stringify({ sessionId, user_question: analysisQuestion, context_docs }),
+        });
 
-      const assistantMessage = data?.answer || 'No response returned yet.';
-      const nextConversation = [
-        ...analysisConversation,
-        { role: 'user', content: analysisQuestion },
-        { role: 'assistant', content: assistantMessage },
-      ];
-      setAnalysisConversation(nextConversation);
-      setAnalysisResult(JSON.stringify(data, null, 2));
-      setWorkspaceNote('Analysis response received from the multimodal agent.');
-      setAnalysisQuestion('');
+        const assistantMessage = data?.answer || 'No response returned yet.';
+        const nextConversation = [
+          ...analysisConversation,
+          { role: 'user', content: analysisQuestion },
+          { role: 'assistant', content: assistantMessage },
+        ];
+        setAnalysisConversation(nextConversation);
+        setAnalysisResult(JSON.stringify(data, null, 2));
+        setWorkspaceNote('Analysis response received from the multimodal agent.');
+        setAnalysisQuestion('');
+      }
     } catch (error) {
       setWorkspaceNote(error.message);
     } finally {
@@ -552,13 +616,25 @@ function App() {
     }
     setDesignLoading(true);
     try {
-      const data = await fetchJson('/api/design/alternatives/generate', {
-        method: 'POST',
-        body: JSON.stringify({ sessionId, idea: designIdea }),
-      });
-      setDesignPrompt(data.prompt || '');
-      setDesignGallery(data.gallery || []);
-      setDesignStatus('Image prompt generated with supporting gallery previews.');
+      if (LOCAL_ONLY) {
+        const prompt = `Local-only prompt from idea: ${designIdea}`;
+        const localImage = 'https://placehold.co/600x400?text=Local+Only+Preview';
+        const next = [
+          ...designGallery,
+          { prompt, images: [localImage], refinement: '', createdAt: new Date().toISOString() },
+        ];
+        setDesignPrompt(prompt);
+        setDesignGallery(next);
+        setDesignStatus('Local-only prompt generated. Start the backend for full image synthesis.');
+      } else {
+        const data = await fetchJson('/api/design/alternatives/generate', {
+          method: 'POST',
+          body: JSON.stringify({ sessionId, idea: designIdea }),
+        });
+        setDesignPrompt(data.prompt || '');
+        setDesignGallery(data.gallery || []);
+        setDesignStatus('Image prompt generated with supporting gallery previews.');
+      }
     } catch (error) {
       setDesignStatus(error.message);
     } finally {
@@ -581,14 +657,27 @@ function App() {
     }
     setDesignLoading(true);
     try {
-      const data = await fetchJson('/api/design/alternatives/refine', {
-        method: 'POST',
-        body: JSON.stringify({ sessionId, prompt: designPrompt, refinement: designRefinement }),
-      });
-      setDesignPrompt(data.prompt || '');
-      setDesignGallery(data.gallery || []);
-      setDesignRefinement('');
-      setDesignStatus('Prompt refined and new variants added to the gallery.');
+      if (LOCAL_ONLY) {
+        const prompt = `${designPrompt} | refinement: ${designRefinement}`;
+        const localImage = 'https://placehold.co/600x400?text=Local+Refinement';
+        const next = [
+          ...designGallery,
+          { prompt, images: [localImage], refinement: designRefinement, createdAt: new Date().toISOString() },
+        ];
+        setDesignPrompt(prompt);
+        setDesignGallery(next);
+        setDesignRefinement('');
+        setDesignStatus('Local-only refinement applied. Start the server for regenerated images.');
+      } else {
+        const data = await fetchJson('/api/design/alternatives/refine', {
+          method: 'POST',
+          body: JSON.stringify({ sessionId, prompt: designPrompt, refinement: designRefinement }),
+        });
+        setDesignPrompt(data.prompt || '');
+        setDesignGallery(data.gallery || []);
+        setDesignRefinement('');
+        setDesignStatus('Prompt refined and new variants added to the gallery.');
+      }
     } catch (error) {
       setDesignStatus(error.message);
     } finally {

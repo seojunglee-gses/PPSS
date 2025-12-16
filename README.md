@@ -56,3 +56,15 @@ python -m http.server 8000
 ```
 
 Then open http://localhost:8000 in a browser (ensure the Node server is running on port 3001).
+
+### Local-only mode (no server)
+
+If you need to demo the UI without any backend, add the following snippet before `app.jsx` is loaded in `index.html` (or set the globals in DevTools):
+
+```html
+<script>
+  window.LOCAL_ONLY = true;
+</script>
+```
+
+With `LOCAL_ONLY` enabled, the client bypasses all API calls and simulates responses locally so sign-in and workflow navigation still function.
