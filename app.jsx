@@ -49,7 +49,7 @@ function fetchJson(url, options) {
   });
 }
 
-function Sidebar({ view, onNavigate }) {
+function Sidebar({ view, onNavigate, activeRole, sessionId }) {
   const items = [
     { id: 'home', icon: '🏠', label: 'Home' },
     { id: 'workflow', icon: '🧭', label: 'Workflow' },
@@ -60,6 +60,12 @@ function Sidebar({ view, onNavigate }) {
     <aside className="sidebar">
       <div className="logo" aria-label="PPSS Logo">
         <span className="logo-mark">PP</span>
+      </div>
+      <div className="sidebar-status" aria-live="polite">
+        <div className="sidebar-status-label">Signed in as</div>
+        <div className="sidebar-status-value">
+          {sessionId ? activeRole || 'Stakeholder' : 'Not signed in'}
+        </div>
       </div>
       <nav className="nav">
         {items.map((item) => (
@@ -79,15 +85,7 @@ function Sidebar({ view, onNavigate }) {
   );
 }
 
-function SigninModal({
-  open,
-  activeRole,
-  userId,
-  onClose,
-  onSubmit,
-  onChange,
-  error,
-}) {
+function SigninModal({ open, activeRole, onClose, onSubmit, onChange, error }) {
   if (!open) return null;
   return (
     <div className="modal" role="dialog" aria-modal="true" aria-labelledby="signinTitle">
@@ -106,15 +104,6 @@ function SigninModal({
             onSubmit();
           }}
         >
-          <label htmlFor="userId">User ID</label>
-          <input
-            id="userId"
-            name="userId"
-            placeholder="Enter a unique user identifier"
-            value={userId}
-            onChange={(e) => onChange('userId', e.target.value)}
-            required
-          />
           <label htmlFor="signinCode">Personal code</label>
           <input
             type="password"
@@ -122,6 +111,7 @@ function SigninModal({
             name="signinCode"
             required
             placeholder="Enter your saved code"
+            value={signinState.code}
             onChange={(e) => onChange('code', e.target.value)}
           />
           <div className="form-actions">
@@ -196,7 +186,7 @@ function App() {
   const [workflowStage, setWorkflowStage] = useState('problem');
   const [signinOpen, setSigninOpen] = useState(false);
   const [signinError, setSigninError] = useState('');
-  const [signinState, setSigninState] = useState({ code: '', userId: '' });
+  const [signinState, setSigninState] = useState({ code: '' });
   const [personalCodes, setPersonalCodes] = useState(() => {
     const stored = localStorage.getItem('ppssCodes');
     return stored ? JSON.parse(stored) : {};
@@ -220,6 +210,16 @@ function App() {
   const [designGallery, setDesignGallery] = useState([]);
   const [designStatus, setDesignStatus] = useState('');
   const [designLoading, setDesignLoading] = useState(false);
+
+  const navigate = (nextView) => {
+    if (nextView === 'workflow' && !sessionId) {
+      setStatusMessage('Sign in required to enter the workflow.');
+      setWorkspaceNote('Sign in to enter the workflow stages.');
+      setView('home');
+      return;
+    }
+    setView(nextView);
+  };
 
   useEffect(() => {
     const rolesWithCodes = Object.keys(personalCodes).length;
@@ -305,8 +305,11 @@ function App() {
       return;
     }
     try {
+      const userKey = `ppssUser-${role || 'guest'}`;
+      const derivedUserId = localStorage.getItem(userKey) || `${role || 'user'}-${Date.now()}`;
+      localStorage.setItem(userKey, derivedUserId);
       const payload = {
-        userId: signinState.userId || `${role}-guest`,
+        userId: derivedUserId,
         stakeholder_type: role,
       };
       const data = await fetchJson('/api/login', {
@@ -1033,7 +1036,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar view={view} onNavigate={setView} />
+      <Sidebar view={view} onNavigate={navigate} activeRole={role} sessionId={sessionId} />
       <main className="main">
         <header className="top-bar">
           <div>
@@ -1059,7 +1062,6 @@ function App() {
       <SigninModal
         open={signinOpen}
         activeRole={role}
-        userId={signinState.userId}
         error={signinError}
         onClose={closeSignin}
         onSubmit={handleSigninSubmit}

@@ -52,6 +52,25 @@ body {
   font-size: 16px;
 }
 
+.sidebar-status {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 14px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.sidebar-status-label {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.sidebar-status-value {
+  font-weight: 700;
+  margin-top: 4px;
+  font-size: 14px;
+}
+
 .nav {
   display: flex;
   flex-direction: column;
