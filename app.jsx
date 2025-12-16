@@ -33,20 +33,33 @@ const workflowStages = [
   },
 ];
 
-const API_BASE = window.API_BASE_URL || 'http://localhost:3001';
+const API_BASES = [window.API_BASE_URL, window.location?.origin, 'http://localhost:3001']
+  .filter(Boolean)
+  .filter((value, index, self) => self.indexOf(value) === index);
 
-function fetchJson(url, options) {
-  return fetch(`${API_BASE}${url}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  }).then(async (response) => {
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const message = data?.error || 'Unexpected server error';
-      throw new Error(message);
+async function fetchJson(url, options) {
+  let lastError = null;
+  for (const base of API_BASES) {
+    try {
+      const response = await fetch(`${base}${url}`, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const message = data?.error || 'Unexpected server error';
+        throw new Error(message);
+      }
+      return data;
+    } catch (error) {
+      lastError = error;
+      // Try the next base URL on network errors; for HTTP errors, stop early.
+      if (!(error instanceof TypeError)) {
+        break;
+      }
     }
-    return data;
-  });
+  }
+  throw new Error(lastError?.message || 'Unable to reach the server. Please start the backend.');
 }
 
 function Sidebar({ view, onNavigate, activeRole, sessionId }) {
