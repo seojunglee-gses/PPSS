@@ -3,12 +3,12 @@
 A React + Node.js prototype for the ChatGPT-assisted Public Participation Support System (PPSS). The interface mirrors the layout from the referenced study and now includes a personalized agent pipeline backed by MongoDB and the ChatGPT API.
 
 ## Features
-- Sidebar navigation for Home, Workspace, Report, and Settings.
+- Sidebar navigation for Home, Workflow, Report, and Settings.
 - Role-based sign-in on Home with personal codes (defaults: Government `0000`, The Public `3000`).
-- Workspace with simulation, notes, and a personalized agent chat transcript per user session.
-- Workspace Problem Definition stage with project brief (Figure 6 layout), personalized agent dialogue, and chat_summary_agent summaries aggregated across users.
-- Workspace Data Analysis stage with precedent tabs (text + imagery), multimodal agent Q&A, and rendered JSON responses from the analysis API.
-- Workspace Design/Plan Alternatives stage with agent-authored image prompts, prompt refinement, and gallery storage for generated images per session.
+- Workflow tab that isolates each PPSS step so only one stage is visible at a time.
+- Workflow Problem Definition stage with project brief (Figure 6 layout), personalized agent dialogue, and chat_summary_agent summaries aggregated across users.
+- Workflow Data Analysis stage with precedent tabs (text + imagery), multimodal agent Q&A, and rendered JSON responses from the analysis API.
+- Workflow Design/Plan Alternatives stage with agent-authored image prompts, prompt refinement, and gallery storage for generated images per session.
 - Server endpoints that load `agent_profile` on login, generate a system prompt from the stakeholder type, and persist conversation history in MongoDB.
 
 ## Running the server

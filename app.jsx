@@ -6,10 +6,31 @@ const defaultRoleCodes = {
 };
 
 const stageSteps = [
-  { id: 'project', label: 'Project Description', icon: '🗂️' },
+  { id: 'problem', label: 'Problem Definition', icon: '🧭' },
   { id: 'analysis', label: 'Data Analysis', icon: '📊' },
   { id: 'design', label: 'Design/Plan Alternatives', icon: '🎨' },
   { id: 'evaluation', label: 'Design/Plan Evaluation', icon: '✅' },
+];
+
+const workflowStages = [
+  {
+    id: 'problem',
+    label: 'Problem Definition',
+    icon: '🧭',
+    helper: 'Frame the challenge and collect stakeholder inputs.',
+  },
+  {
+    id: 'analysis',
+    label: 'Data Analysis',
+    icon: '📊',
+    helper: 'Interrogate precedents with multimodal evidence.',
+  },
+  {
+    id: 'design',
+    label: 'Design/Plan Alternatives',
+    icon: '🎨',
+    helper: 'Generate and refine visual options with the agent.',
+  },
 ];
 
 const API_BASE = window.API_BASE_URL || 'http://localhost:3001';
@@ -31,7 +52,7 @@ function fetchJson(url, options) {
 function Sidebar({ view, onNavigate }) {
   const items = [
     { id: 'home', icon: '🏠', label: 'Home' },
-    { id: 'workspace', icon: '💻', label: 'Workspace' },
+    { id: 'workflow', icon: '🧭', label: 'Workflow' },
     { id: 'report', icon: '📑', label: 'Report' },
     { id: 'settings', icon: '⚙️', label: 'Settings' },
   ];
@@ -146,7 +167,7 @@ function ChatTranscript({ conversation }) {
 }
 
 function StageProgress({ currentStage }) {
-  const activeIndex = stageSteps.findIndex((step) => step.id === currentStage);
+  const activeIndex = Math.max(stageSteps.findIndex((step) => step.id === currentStage), 0);
   return (
     <div className="stage-progress" role="list" aria-label="PPSS stage progress">
       {stageSteps.map((step, index) => {
@@ -172,6 +193,7 @@ function App() {
   const [role, setRole] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [systemPrompt, setSystemPrompt] = useState('');
+  const [workflowStage, setWorkflowStage] = useState('problem');
   const [signinOpen, setSigninOpen] = useState(false);
   const [signinError, setSigninError] = useState('');
   const [signinState, setSigninState] = useState({ code: '', userId: '' });
@@ -296,7 +318,7 @@ function App() {
       setConversation(data.conversation || []);
       setStatusMessage(`${role} · Signed in`);
       setWorkspaceNote('You are authenticated. Draft or save notes to capture policy discussions.');
-      setView('workspace');
+      setView('workflow');
       closeSignin();
     } catch (error) {
       setSigninError(error.message);
@@ -594,310 +616,353 @@ function App() {
     </section>
   );
 
-  const Workspace = () => (
-    <section className={`view ${view === 'workspace' ? 'active' : ''}`} aria-label="Workspace">
-      <div className="panel stage-header">
-        <div className="stage-meta">
-          <p className="stage-kicker">Data Analysis + Design/Plan Alternatives</p>
-          <h2>Seoul Station Overpass</h2>
-          <p>
-            Review precedent cases, interrogate the data with your personalized agent, and translate ideas into visual alternatives before evaluation. The layout mirrors the PPSS workflow with left-hand evidence and right-hand agent dialog.
-          </p>
-        </div>
-        <StageProgress currentStage="design" />
-      </div>
 
-      <div className="analysis-layout">
-        <div className="panel evidence-panel">
-          <div className="panel-header">
-            <div>
-              <p className="muted">Case Library</p>
-              <h3>Comparable precedents</h3>
+  const stageCopy = {
+    problem: {
+      kicker: 'Stage 1 · Problem Definition',
+      title: 'Seoul Station Overpass',
+      description:
+        'Frame the challenges and collect stakeholder feedback before moving into multimodal analysis. Based on the case study flow, this stage focuses on surfacing priorities from residents and other roles.',
+    },
+    analysis: {
+      kicker: 'Stage 2 · Data Analysis',
+      title: 'Evidence-driven insights',
+      description:
+        'Review precedent cases, interrogate the data with your personalized agent, and prepare the ground for creative synthesis.',
+    },
+    design: {
+      kicker: 'Stage 3 · Design/Plan Alternatives',
+      title: 'Generate visual options',
+      description:
+        'Translate ideas into render-ready prompts, refine directions, and curate gallery outputs before evaluation.',
+    },
+  };
+
+  const Workflow = () => {
+    const currentStageCopy = stageCopy[workflowStage];
+
+    return (
+      <section className={`view ${view === 'workflow' ? 'active' : ''}`} aria-label="Workflow">
+        <div className="panel stage-header">
+          <div className="stage-meta">
+            <p className="stage-kicker">{currentStageCopy.kicker}</p>
+            <h2>{currentStageCopy.title}</h2>
+            <p>{currentStageCopy.description}</p>
+          </div>
+          <StageProgress currentStage={workflowStage} />
+        </div>
+
+        <div className="stage-switch" role="tablist" aria-label="Workflow stages">
+          {workflowStages.map((stage) => (
+            <button
+              key={stage.id}
+              className={`stage-switch-btn ${workflowStage === stage.id ? 'active' : ''}`}
+              role="tab"
+              aria-selected={workflowStage === stage.id}
+              onClick={() => setWorkflowStage(stage.id)}
+            >
+              <span className="stage-switch-icon" aria-hidden="true">
+                {stage.icon}
+              </span>
+              <span className="stage-switch-text">
+                <strong>{stage.label}</strong>
+                <span className="stage-switch-helper">{stage.helper}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {workflowStage === 'analysis' ? (
+          <div className="analysis-layout" role="tabpanel" aria-label="Data Analysis">
+            <div className="panel evidence-panel">
+              <div className="panel-header">
+                <div>
+                  <p className="muted">Case Library</p>
+                  <h3>Comparable precedents</h3>
+                </div>
+                <div className="case-tabs">
+                  {analysisCases.map((entry, idx) => (
+                    <button
+                      key={entry.title}
+                      className={`case-tab ${analysisCaseIndex === idx ? 'active' : ''}`}
+                      onClick={() => setAnalysisCaseIndex(idx)}
+                      aria-label={`Case ${idx + 1}`}
+                    >
+                      {idx + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="evidence-body">
+                <div className="evidence-media" role="img" aria-label={activeCase.title}>
+                  <img src={activeCase.image} alt={activeCase.title} />
+                </div>
+                <div className="evidence-content">
+                  <p className="eyebrow">{activeCase.subtitle}</p>
+                  <h4>{activeCase.title}</h4>
+                  <p>{activeCase.description}</p>
+                  <div className="two-column">
+                    <div>
+                      <h5>Summary of strategies</h5>
+                      <ul>
+                        {activeCase.strategies.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h5>Prompt ideas</h5>
+                      <ul>
+                        {activeCase.questions.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="case-tabs">
-              {analysisCases.map((entry, idx) => (
-                <button
-                  key={entry.title}
-                  className={`case-tab ${analysisCaseIndex === idx ? 'active' : ''}`}
-                  onClick={() => setAnalysisCaseIndex(idx)}
-                  aria-label={`Case ${idx + 1}`}
-                >
-                  {idx + 1}
+
+            <div className="panel agent-panel analysis-chat">
+              <div className="agent-header">
+                <div>
+                  <p className="muted">Multimodal personalized agent</p>
+                  <h3>Data Analysis dialogue</h3>
+                </div>
+                {systemPrompt ? <span className="badge">{role || 'Stakeholder'} context</span> : null}
+              </div>
+              <label htmlFor="analysisQuestion">Ask about the cases</label>
+              <textarea
+                id="analysisQuestion"
+                placeholder="How do these cases reduce displacement risk while activating public life?"
+                value={analysisQuestion}
+                onChange={(e) => setAnalysisQuestion(e.target.value)}
+              ></textarea>
+              <div className="workspace-actions">
+                <button className="primary" onClick={sendAnalysisQuery} disabled={sending}>
+                  {sending ? 'Sending...' : 'Ask personalized agent'}
                 </button>
-              ))}
+                <button className="secondary" onClick={() => setAnalysisResult('')}>Clear result</button>
+              </div>
+              <div className="panel nested">
+                <h4>Conversation</h4>
+                <ChatTranscript conversation={analysisConversation} />
+              </div>
+              {analysisResult ? (
+                <div className="json-block" role="region" aria-live="polite">
+                  <div className="summary-title">Latest /analysis/query response</div>
+                  <pre>{analysisResult}</pre>
+                </div>
+              ) : null}
             </div>
           </div>
-          <div className="evidence-body">
-            <div className="evidence-media" role="img" aria-label={activeCase.title}>
-              <img src={activeCase.image} alt={activeCase.title} />
-            </div>
-            <div className="evidence-content">
-              <p className="eyebrow">{activeCase.subtitle}</p>
-              <h4>{activeCase.title}</h4>
-              <p>{activeCase.description}</p>
+        ) : null}
+
+        {workflowStage === 'problem' ? (
+          <div className="problem-grid" role="tabpanel" aria-label="Problem Definition">
+            <div className="panel project-brief">
+              <div className="brief-header">
+                <div>
+                  <h3>Project Description</h3>
+                  <p className="muted">Grounded in the case study’s Figure 6 layout.</p>
+                </div>
+                <span className="badge">Resident View</span>
+              </div>
+              <div className="brief-media" role="img" aria-label="Seoul Station overpass aerial view">
+                <div className="image-mask">
+                  <img
+                    src="https://images.unsplash.com/photo-1526485797145-81f272bb1b83?auto=format&fit=crop&w=900&q=80"
+                    alt="Seoul city skyline"
+                  />
+                </div>
+              </div>
+              <p>
+                Construction of the Seoul Station Overpass began on March 18, 1969 and opened on August 15, 1970. For over 45 years, it has served as a key corridor but now faces aging infrastructure challenges. Residents feel the corridor separates the city while carrying freight and commuter loads.
+              </p>
               <div className="two-column">
                 <div>
-                  <h5>Summary of strategies</h5>
+                  <h4>Summary of Key Solutions</h4>
                   <ul>
-                    {activeCase.strategies.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
+                    <li>Improve walking paths and public transit integration.</li>
+                    <li>Reduce the dominance of freight traffic in nearby streets.</li>
+                    <li>Revitalize neighborhoods through safer crossings and better amenities.</li>
+                    <li>Repurpose disused overpass segments into cultural and green spaces.</li>
                   </ul>
                 </div>
                 <div>
-                  <h5>Prompt ideas</h5>
+                  <h4>Summary of Key Strategies</h4>
                   <ul>
-                    {activeCase.questions.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
+                    <li>Create continuous pedestrian and universal-design access.</li>
+                    <li>Introduce curated open spaces with art, planting, and seating.</li>
+                    <li>Reuse railway heritage in ways that celebrate local history.</li>
+                    <li>Enable citizens to co-design the corridor identity with data-driven guidance.</li>
                   </ul>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        <div className="panel agent-panel analysis-chat">
-          <div className="agent-header">
-            <div>
-              <p className="muted">Multimodal personalized agent</p>
-              <h3>Data Analysis dialogue</h3>
-            </div>
-            {systemPrompt ? <span className="badge">{role || 'Stakeholder'} context</span> : null}
-          </div>
-          <label htmlFor="analysisQuestion">Ask about the cases</label>
-          <textarea
-            id="analysisQuestion"
-            placeholder="How do these cases reduce displacement risk while activating public life?"
-            value={analysisQuestion}
-            onChange={(e) => setAnalysisQuestion(e.target.value)}
-          ></textarea>
-          <div className="workspace-actions">
-            <button className="primary" onClick={sendAnalysisQuery} disabled={sending}>
-              {sending ? 'Sending...' : 'Ask personalized agent'}
-            </button>
-            <button className="secondary" onClick={() => setAnalysisResult('')}>Clear result</button>
-          </div>
-          <div className="panel nested">
-            <h4>Conversation</h4>
-            <ChatTranscript conversation={analysisConversation} />
-          </div>
-          {analysisResult ? (
-            <div className="json-block" role="region" aria-live="polite">
-              <div className="summary-title">Latest /analysis/query response</div>
-              <pre>{analysisResult}</pre>
-            </div>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="problem-grid">
-        <div className="panel project-brief">
-          <div className="brief-header">
-            <div>
-              <h3>Project Description</h3>
-              <p className="muted">Grounded in the case study’s Figure 6 layout.</p>
-            </div>
-            <span className="badge">Resident View</span>
-          </div>
-          <div className="brief-media" role="img" aria-label="Seoul Station overpass aerial view">
-            <div className="image-mask">
-              <img
-                src="https://images.unsplash.com/photo-1526485797145-81f272bb1b83?auto=format&fit=crop&w=900&q=80"
-                alt="Seoul city skyline"
-              />
-            </div>
-          </div>
-          <p>
-            Construction of the Seoul Station Overpass began on March 18, 1969 and opened on August 15, 1970. For over 45 years, it has served as a key corridor but now faces aging infrastructure challenges. Residents feel the corridor separates the city while carrying freight and commuter loads.
-          </p>
-          <div className="two-column">
-            <div>
-              <h4>Summary of Key Solutions</h4>
-              <ul>
-                <li>Improve walking paths and public transit integration.</li>
-                <li>Reduce the dominance of freight traffic in nearby streets.</li>
-                <li>Revitalize neighborhoods through safer crossings and better amenities.</li>
-                <li>Repurpose disused overpass segments into cultural and green spaces.</li>
-              </ul>
-            </div>
-            <div>
-              <h4>Summary of Key Strategies</h4>
-              <ul>
-                <li>Create continuous pedestrian and universal-design access.</li>
-                <li>Introduce curated open spaces with art, planting, and seating.</li>
-                <li>Reuse railway heritage in ways that celebrate local history.</li>
-                <li>Enable citizens to co-design the corridor identity with data-driven guidance.</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <div className="panel agent-panel">
-          <div className="agent-header">
-            <div>
-              <p className="muted">Personalized Agent</p>
-              <h3>Problem-definition dialogue</h3>
-            </div>
-            <button className="secondary" onClick={generateProblemSummary} disabled={loadingSummary}>
-              {loadingSummary ? 'Summarizing...' : 'Generate cross-user summary'}
-            </button>
-          </div>
-          <label htmlFor="problemPrompt">Prompt the agent</label>
-          <textarea
-            id="problemPrompt"
-            placeholder="Ask about neighborhood impacts, heritage reuse, or design priorities..."
-            value={problemPrompt}
-            onChange={(e) => setProblemPrompt(e.target.value)}
-          ></textarea>
-          <div className="workspace-actions">
-            <button className="primary" onClick={sendProblemMessage} disabled={sending}>
-              {sending ? 'Sending...' : 'Send to Personalized Agent'}
-            </button>
-            <button className="secondary" onClick={saveNotes}>
-              Save Notes
-            </button>
-          </div>
-          <div className="info" id="workspaceStatus">
-            {workspaceNote}
-          </div>
-          <div className="panel nested">
-            <h4>Conversation</h4>
-            <ChatTranscript conversation={problemConversation} />
-            {systemPrompt ? (
-              <div className="info">
-                Active system prompt: <code>{systemPrompt}</code>
+            <div className="panel agent-panel">
+              <div className="agent-header">
+                <div>
+                  <p className="muted">Personalized Agent</p>
+                  <h3>Problem-definition dialogue</h3>
+                </div>
+                <button className="secondary" onClick={generateProblemSummary} disabled={loadingSummary}>
+                  {loadingSummary ? 'Summarizing...' : 'Generate cross-user summary'}
+                </button>
               </div>
-            ) : null}
-          </div>
-          {problemSummary ? (
-            <div className="summary-card">
-              <div className="summary-title">chat_summary_agent output</div>
-              <p>{problemSummary}</p>
+              <label htmlFor="problemPrompt">Prompt the agent</label>
+              <textarea
+                id="problemPrompt"
+                placeholder="Ask about neighborhood impacts, heritage reuse, or design priorities..."
+                value={problemPrompt}
+                onChange={(e) => setProblemPrompt(e.target.value)}
+              ></textarea>
+              <div className="workspace-actions">
+                <button className="primary" onClick={sendProblemMessage} disabled={sending}>
+                  {sending ? 'Sending...' : 'Send to Personalized Agent'}
+                </button>
+                <button className="secondary" onClick={saveNotes}>
+                  Save Notes
+                </button>
+              </div>
+              <div className="panel nested">
+                <h4>Conversation</h4>
+                <ChatTranscript conversation={problemConversation} />
+              </div>
+              {problemSummary ? (
+                <div className="summary" role="region" aria-live="polite">
+                  <div className="summary-title">Latest stage summary</div>
+                  <p>{problemSummary}</p>
+                </div>
+              ) : null}
             </div>
-          ) : null}
-        </div>
-      </div>
+          </div>
+        ) : null}
 
-      <div className="panel design-header">
-        <div>
-          <p className="stage-kicker">Stage 3 · Design/Plan Alternatives</p>
-          <h3>Generate visual options with a personalized agent</h3>
-          <p className="muted">
-            The agent converts your idea into a ready-to-render image prompt, calls the image generator, and stores the prompt + URLs for your session.
-          </p>
-        </div>
-      </div>
+        {workflowStage === 'design' ? (
+          <div role="tabpanel" aria-label="Design/Plan Alternatives">
+            <div className="panel design-header">
+              <div>
+                <p className="stage-kicker">Stage 3 · Design/Plan Alternatives</p>
+                <h3>Generate visual options with a personalized agent</h3>
+                <p className="muted">
+                  The agent converts your idea into a ready-to-render image prompt, calls the image generator, and stores the prompt + URLs for your session.
+                </p>
+              </div>
+            </div>
 
-      <div className="design-layout">
-        <div className="panel design-form">
-          <h4>Idea capture & prompt synthesis</h4>
-          <label htmlFor="designIdea">Describe your idea</label>
-          <textarea
-            id="designIdea"
-            placeholder="e.g., Convert the overpass into a terraced urban forest with night lighting and kiosks"
-            value={designIdea}
-            onChange={(e) => setDesignIdea(e.target.value)}
-          ></textarea>
-          <label htmlFor="designPrompt">Generated image prompt</label>
-          <textarea id="designPrompt" value={designPrompt} readOnly placeholder="Prompt will appear here"></textarea>
-          <div className="refinement-row">
-            <input
-              type="text"
-              id="designRefinement"
-              placeholder="Ask for refinements, e.g., 'make it more accessible and brighter'"
-              value={designRefinement}
-              onChange={(e) => setDesignRefinement(e.target.value)}
-            />
-            <button className="secondary" onClick={refineDesignPrompt} disabled={designLoading}>
-              {designLoading ? 'Working...' : 'Refine prompt'}
-            </button>
-          </div>
-          <div className="workspace-actions">
-            <button className="primary" onClick={generateDesignAlternative} disabled={designLoading}>
-              {designLoading ? 'Generating...' : 'Generate alternatives'}
-            </button>
-            <div className="info inline">{designStatus || 'Prompts and images are saved with your session.'}</div>
-          </div>
-        </div>
-        <div className="panel design-gallery">
-          <div className="design-gallery-header">
-            <h4>Gallery</h4>
-            <p className="muted">Latest prompts and generated URLs</p>
-          </div>
-          {designGallery.length === 0 ? (
-            <div className="info">No images yet. Generate a prompt to populate the gallery.</div>
-          ) : (
-            <div className="gallery-grid">
-              {designGallery.map((entry, idx) => (
-                <div key={idx} className="gallery-card">
-                  <div className="gallery-meta">
-                    <div className="pill">{entry.refinement ? 'Refined' : 'Base'}</div>
-                    <div className="timestamp">{new Date(entry.createdAt).toLocaleString()}</div>
-                  </div>
-                  <p className="gallery-prompt">{entry.prompt}</p>
-                  <div className="gallery-images">
-                    {(entry.images || []).map((url, imageIdx) => (
-                      <img
-                        key={imageIdx}
-                        src={url}
-                        alt={entry.prompt}
-                        onClick={() => setDesignPrompt(entry.prompt)}
-                      />
+            <div className="design-layout">
+              <div className="panel design-form">
+                <h4>Idea capture & prompt synthesis</h4>
+                <label htmlFor="designIdea">Describe your idea</label>
+                <textarea
+                  id="designIdea"
+                  placeholder="e.g., Convert the overpass into a terraced urban forest with night lighting and kiosks"
+                  value={designIdea}
+                  onChange={(e) => setDesignIdea(e.target.value)}
+                ></textarea>
+                <label htmlFor="designPrompt">Generated image prompt</label>
+                <textarea id="designPrompt" value={designPrompt} readOnly placeholder="Prompt will appear here"></textarea>
+                <div className="refinement-row">
+                  <input
+                    type="text"
+                    id="designRefinement"
+                    placeholder="Ask for refinements, e.g., 'make it more accessible and brighter'"
+                    value={designRefinement}
+                    onChange={(e) => setDesignRefinement(e.target.value)}
+                  />
+                  <button className="secondary" onClick={refineDesignPrompt} disabled={designLoading}>
+                    {designLoading ? 'Working...' : 'Refine prompt'}
+                  </button>
+                </div>
+                <div className="workspace-actions">
+                  <button className="primary" onClick={generateDesignAlternative} disabled={designLoading}>
+                    {designLoading ? 'Generating...' : 'Generate alternatives'}
+                  </button>
+                  <div className="info inline">{designStatus || 'Prompts and images are saved with your session.'}</div>
+                </div>
+              </div>
+              <div className="panel design-gallery">
+                <div className="design-gallery-header">
+                  <h4>Gallery</h4>
+                  <p className="muted">Latest prompts and generated URLs</p>
+                </div>
+                {designGallery.length === 0 ? (
+                  <div className="info">No images yet. Generate a prompt to populate the gallery.</div>
+                ) : (
+                  <div className="gallery-grid">
+                    {designGallery.map((entry, idx) => (
+                      <div key={idx} className="gallery-card">
+                        <div className="gallery-meta">
+                          <div className="pill">{entry.refinement ? 'Refined' : 'Base'}</div>
+                          <div className="timestamp">{new Date(entry.createdAt).toLocaleString()}</div>
+                        </div>
+                        <p className="gallery-prompt">{entry.prompt}</p>
+                        <div className="gallery-images">
+                          {(entry.images || []).map((url, imageIdx) => (
+                            <img
+                              key={imageIdx}
+                              src={url}
+                              alt={entry.prompt}
+                              onClick={() => setDesignPrompt(entry.prompt)}
+                            />
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
-                </div>
-              ))}
+                )}
+              </div>
             </div>
-          )}
-        </div>
-      </div>
 
-      <div className="panel">
-        <h3>Scenario Drafting</h3>
-        <p className="muted">Optional quick draft area that feeds the workspace simulation.</p>
-        <div className="workspace-content">
-          <div>
-            <label htmlFor="policyPrompt">Policy prompt</label>
-            <textarea
-              id="policyPrompt"
-              placeholder="Describe the policy context, goals, and constraints..."
-              value={policyPrompt}
-              onChange={(e) => setPolicyPrompt(e.target.value)}
-            ></textarea>
+            <div className="panel">
+              <h3>Scenario Drafting</h3>
+              <p className="muted">Optional quick draft area that feeds the workspace simulation.</p>
+              <div className="workspace-content">
+                <div>
+                  <label htmlFor="policyPrompt">Policy prompt</label>
+                  <textarea
+                    id="policyPrompt"
+                    placeholder="Describe the policy context, goals, and constraints..."
+                    value={policyPrompt}
+                    onChange={(e) => setPolicyPrompt(e.target.value)}
+                  ></textarea>
+                </div>
+                <div>
+                  <label htmlFor="aiOutcome">AI-assisted outcome</label>
+                  <textarea
+                    id="aiOutcome"
+                    placeholder="Scenario drafts, synthesized insights, and alternative pathways appear here."
+                    value={aiOutcome}
+                    readOnly
+                  ></textarea>
+                </div>
+              </div>
+              <div className="workspace-actions">
+                <button className="primary" id="simulateBtn" onClick={runSimulation}>
+                  Simulate Scenario
+                </button>
+                <button className="secondary" id="saveNotesBtn" onClick={saveNotes}>
+                  Save Notes
+                </button>
+                <button className="primary ghost" onClick={sendMessage} disabled={sending}>
+                  {sending ? 'Sending...' : 'Send to Personalized Agent'}
+                </button>
+              </div>
+              <div className="info" id="scenarioStatus">
+                {workspaceNote}
+              </div>
+              <div className="panel nested">
+                <h4>Conversation</h4>
+                <ChatTranscript conversation={conversation} />
+              </div>
+            </div>
           </div>
-          <div>
-            <label htmlFor="aiOutcome">AI-assisted outcome</label>
-            <textarea
-              id="aiOutcome"
-              placeholder="Scenario drafts, synthesized insights, and alternative pathways appear here."
-              value={aiOutcome}
-              readOnly
-            ></textarea>
-          </div>
-        </div>
-        <div className="workspace-actions">
-          <button className="primary" id="simulateBtn" onClick={runSimulation}>
-            Simulate Scenario
-          </button>
-          <button className="secondary" id="saveNotesBtn" onClick={saveNotes}>
-            Save Notes
-          </button>
-          <button className="primary ghost" onClick={sendMessage} disabled={sending}>
-            {sending ? 'Sending...' : 'Send to Personalized Agent'}
-          </button>
-        </div>
-        <div className="info" id="scenarioStatus">
-          {workspaceNote}
-        </div>
-        <div className="panel nested">
-          <h4>Conversation</h4>
-          <ChatTranscript conversation={conversation} />
-        </div>
-      </div>
-    </section>
-  );
-
+        ) : null}
+      </section>
+    );
+  };
   const Report = () => (
     <section className={`view ${view === 'report' ? 'active' : ''}`} aria-label="Report">
       <div className="panel">
@@ -987,7 +1052,7 @@ function App() {
           </div>
         </header>
         <Home />
-        <Workspace />
+        <Workflow />
         <Report />
         <Settings />
       </main>
