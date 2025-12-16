@@ -85,7 +85,7 @@ function Sidebar({ view, onNavigate, activeRole, sessionId }) {
   );
 }
 
-function SigninModal({ open, activeRole, onClose, onSubmit, onChange, error }) {
+function SigninModal({ open, activeRole, code, onClose, onSubmit, onChange, error }) {
   if (!open) return null;
   return (
     <div className="modal" role="dialog" aria-modal="true" aria-labelledby="signinTitle">
@@ -111,7 +111,7 @@ function SigninModal({ open, activeRole, onClose, onSubmit, onChange, error }) {
             name="signinCode"
             required
             placeholder="Enter your saved code"
-            value={signinState.code}
+            value={code}
             onChange={(e) => onChange('code', e.target.value)}
           />
           <div className="form-actions">
@@ -1062,6 +1062,7 @@ function App() {
       <SigninModal
         open={signinOpen}
         activeRole={role}
+        code={signinState.code}
         error={signinError}
         onClose={closeSignin}
         onSubmit={handleSigninSubmit}
