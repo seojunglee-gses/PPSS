@@ -1,1 +1,70 @@
-# PPSS
+# PPSS Prototype
+
+A React + Node.js prototype for the ChatGPT-assisted Public Participation Support System (PPSS). The interface mirrors the layout from the referenced study and now includes a personalized agent pipeline backed by MongoDB and the ChatGPT API.
+
+## Features
+- Sidebar navigation for Home, Workflow, Report, and Settings.
+- Role-based sign-in on Home with personal codes (defaults: Government `0000`, The Public `3000`).
+- Workflow tab that isolates each PPSS step so only one stage is visible at a time.
+- Workflow Problem Definition stage with project brief (Figure 6 layout), personalized agent dialogue, and chat_summary_agent summaries aggregated across users.
+- Workflow Data Analysis stage with precedent tabs (text + imagery), multimodal agent Q&A, and rendered JSON responses from the analysis API.
+- Workflow Design/Plan Alternatives stage with agent-authored image prompts, prompt refinement, and gallery storage for generated images per session.
+- Server endpoints that load `agent_profile` on login, generate a system prompt from the stakeholder type, and persist conversation history in MongoDB.
+
+## Running the server
+From the `server` directory:
+
+```bash
+npm install
+npm run start
+```
+
+Set environment variables as needed:
+
+```
+PORT=3001
+MONGODB_URI=mongodb://localhost:27017/ppss
+OPENAI_API_KEY=sk-...
+```
+
+If no `OPENAI_API_KEY` is provided, the server returns a placeholder assistant message to keep the flow testable.
+
+### Problem Definition stage APIs
+
+The Node API exposes stage-specific routes for the workspace UI:
+
+- `POST /api/stage/problem-definition/chat` — send a problem-definition prompt for the current session, persist the dialogue, and return the updated conversation plus the latest summary (if any).
+- `GET /api/stage/problem-definition/chat?sessionId=<id>` — reload the problem-definition conversation for a session.
+- `POST /api/stage/problem-definition/summary` — aggregate all stored stage conversations across users, call `chat_summary_agent`, save the summary, and return the newest summary text.
+
+### Data Analysis API
+
+- `POST /api/analysis/query` — accept `sessionId`, `user_question`, and `context_docs` (including image URLs). Sends a multimodal request to the personalized agent, stores the query/response, and returns the JSON answer consumed by the UI.
+
+### Design/Plan Alternatives API
+
+- `GET /api/design/alternatives?sessionId=<id>` — fetch the gallery of prompts and generated image URLs for the session.
+- `POST /api/design/alternatives/generate` — accept `{ sessionId, idea }`, craft a design image prompt, call the image generator, persist the prompt + URLs, and return the updated gallery.
+- `POST /api/design/alternatives/refine` — accept `{ sessionId, prompt, refinement }`, produce a refined prompt honoring the tweak, regenerate images, store the record, and return the refreshed gallery.
+
+## Running the client
+The client is a single-page React experience rendered via CDN. Serve the repository root with any static file server so the browser can load `index.html` and make requests to the Node API (defaulting to `http://localhost:3001`). Set `window.API_BASE_URL` in a script tag if the API runs elsewhere. For quick local preview:
+
+```bash
+cd /workspace/PPSS
+python -m http.server 8000
+```
+
+Then open http://localhost:8000 in a browser (ensure the Node server is running on port 3001).
+
+### Local-only mode (no server)
+
+If you need to demo the UI without any backend, add the following snippet before `app.jsx` is loaded in `index.html` (or set the globals in DevTools):
+
+```html
+<script>
+  window.LOCAL_ONLY = true;
+</script>
+```
+
+With `LOCAL_ONLY` enabled, the client bypasses all API calls and simulates responses locally so sign-in and workflow navigation still function.
