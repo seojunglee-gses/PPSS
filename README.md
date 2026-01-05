@@ -1,6 +1,6 @@
 # PPSS Prototype
 
-A React + Node.js prototype for the ChatGPT-assisted Public Participation Support System (PPSS). The interface mirrors the layout from the referenced study and now includes a personalized agent pipeline backed by MongoDB and the ChatGPT API.
+A Next.js + Node.js prototype for the ChatGPT-assisted Public Participation Support System (PPSS). The interface mirrors the layout from the referenced study and now includes a personalized agent pipeline backed by MongoDB and the ChatGPT API.
 
 ## Features
 - Sidebar navigation for Home, Workflow, Report, and Settings.
@@ -48,23 +48,26 @@ The Node API exposes stage-specific routes for the workspace UI:
 - `POST /api/design/alternatives/refine` — accept `{ sessionId, prompt, refinement }`, produce a refined prompt honoring the tweak, regenerate images, store the record, and return the refreshed gallery.
 
 ## Running the client
-The client is a single-page React experience rendered via CDN. Serve the repository root with any static file server so the browser can load `index.html` and make requests to the Node API (defaulting to `http://localhost:3001`). Set `window.API_BASE_URL` in a script tag if the API runs elsewhere. For quick local preview:
+Install dependencies at the repo root:
 
 ```bash
-cd /workspace/PPSS
-python -m http.server 8000
+npm install
 ```
 
-Then open http://localhost:8000 in a browser (ensure the Node server is running on port 3001).
+Start the Next.js dev server:
+
+```bash
+npm run dev
+```
+
+The client runs on http://localhost:3000 and will talk to the Node API on port 3001 by default. Set `window.API_BASE_URL` in the browser console if the API runs elsewhere.
 
 ### Local-only mode (no server)
 
-If you need to demo the UI without any backend, add the following snippet before `app.jsx` is loaded in `index.html` (or set the globals in DevTools):
+If you need to demo the UI without any backend, set the following in DevTools:
 
-```html
-<script>
-  window.LOCAL_ONLY = true;
-</script>
+```js
+window.LOCAL_ONLY = true;
 ```
 
 With `LOCAL_ONLY` enabled, the client bypasses all API calls and simulates responses locally so sign-in and workflow navigation still function.

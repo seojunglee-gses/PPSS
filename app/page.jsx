@@ -1,4 +1,6 @@
-const { useState, useEffect } = React;
+'use client';
+
+import { useEffect, useState } from 'react';
 
 const defaultRoleCodes = {
   Government: '0000',
@@ -32,39 +34,6 @@ const workflowStages = [
     helper: 'Generate and refine visual options with the agent.',
   },
 ];
-
-const LOCAL_ONLY = Boolean(window?.LOCAL_ONLY_MODE ?? window?.LOCAL_ONLY ?? false);
-
-const API_BASES = LOCAL_ONLY
-  ? []
-  : [window.API_BASE_URL, window.location?.origin, 'http://localhost:3001']
-      .filter(Boolean)
-      .filter((value, index, self) => self.indexOf(value) === index);
-
-async function fetchJson(url, options) {
-  let lastError = null;
-  for (const base of API_BASES) {
-    try {
-      const response = await fetch(`${base}${url}`, {
-        headers: { 'Content-Type': 'application/json' },
-        ...options,
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const message = data?.error || 'Unexpected server error';
-        throw new Error(message);
-      }
-      return data;
-    } catch (error) {
-      lastError = error;
-      // Try the next base URL on network errors; for HTTP errors, stop early.
-      if (!(error instanceof TypeError)) {
-        break;
-      }
-    }
-  }
-  throw new Error(lastError?.message || 'Unable to reach the server. Please start the backend.');
-}
 
 function Sidebar({ view, onNavigate, activeRole, sessionId }) {
   const items = [
@@ -194,7 +163,7 @@ function StageProgress({ currentStage }) {
   );
 }
 
-function App() {
+export default function App() {
   const [view, setView] = useState('home');
   const [statusMessage, setStatusMessage] = useState('Signed out');
   const [role, setRole] = useState(null);
@@ -204,11 +173,10 @@ function App() {
   const [signinOpen, setSigninOpen] = useState(false);
   const [signinError, setSigninError] = useState('');
   const [signinState, setSigninState] = useState({ code: '' });
-  const [personalCodes, setPersonalCodes] = useState(() => {
-    const stored = localStorage.getItem('ppssCodes');
-    return stored ? JSON.parse(stored) : {};
-  });
-  const [workspaceNote, setWorkspaceNote] = useState('Provide a policy prompt to explore options. Sign-in is required to persist notes.');
+  const [personalCodes, setPersonalCodes] = useState({});
+  const [workspaceNote, setWorkspaceNote] = useState(
+    'Provide a policy prompt to explore options. Sign-in is required to persist notes.',
+  );
   const [policyPrompt, setPolicyPrompt] = useState('');
   const [aiOutcome, setAiOutcome] = useState('');
   const [problemPrompt, setProblemPrompt] = useState('');
@@ -227,6 +195,16 @@ function App() {
   const [designGallery, setDesignGallery] = useState([]);
   const [designStatus, setDesignStatus] = useState('');
   const [designLoading, setDesignLoading] = useState(false);
+  const [localOnly, setLocalOnly] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = localStorage.getItem('ppssCodes');
+    if (stored) {
+      setPersonalCodes(JSON.parse(stored));
+    }
+    setLocalOnly(Boolean(window.LOCAL_ONLY_MODE ?? window.LOCAL_ONLY ?? false));
+  }, []);
 
   const navigate = (nextView) => {
     if (nextView === 'workflow' && !sessionId) {
@@ -236,6 +214,40 @@ function App() {
       return;
     }
     setView(nextView);
+  };
+
+  const getApiBases = () => {
+    if (localOnly || typeof window === 'undefined') {
+      return [];
+    }
+    return [window.API_BASE_URL, window.location?.origin, 'http://localhost:3001']
+      .filter(Boolean)
+      .filter((value, index, self) => self.indexOf(value) === index);
+  };
+
+  const fetchJson = async (url, options) => {
+    let lastError = null;
+    const apiBases = getApiBases();
+    for (const base of apiBases) {
+      try {
+        const response = await fetch(`${base}${url}`, {
+          headers: { 'Content-Type': 'application/json' },
+          ...options,
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const message = data?.error || 'Unexpected server error';
+          throw new Error(message);
+        }
+        return data;
+      } catch (error) {
+        lastError = error;
+        if (!(error instanceof TypeError)) {
+          break;
+        }
+      }
+    }
+    throw new Error(lastError?.message || 'Unable to reach the server. Please start the backend.');
   };
 
   useEffect(() => {
@@ -260,7 +272,7 @@ function App() {
       setProblemSummary('');
       return;
     }
-    if (LOCAL_ONLY) {
+    if (localOnly) {
       setProblemConversation([]);
       setProblemSummary('');
       setDesignGallery([]);
@@ -283,7 +295,7 @@ function App() {
     fetchJson(`/api/design/alternatives?sessionId=${encodeURIComponent(sessionId)}`)
       .then((data) => setDesignGallery(data.gallery || []))
       .catch(() => setDesignGallery([]));
-  }, [sessionId]);
+  }, [localOnly, sessionId]);
 
   const openSignin = (selectedRole) => {
     setSigninError('');
@@ -313,7 +325,9 @@ function App() {
   const persistCode = (selectedRole, code) => {
     const next = { ...personalCodes, [selectedRole]: code };
     setPersonalCodes(next);
-    localStorage.setItem('ppssCodes', JSON.stringify(next));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ppssCodes', JSON.stringify(next));
+    }
   };
 
   const handleSigninSubmit = () => {
@@ -328,14 +342,15 @@ function App() {
       return;
     }
     const userKey = `ppssUser-${role || 'guest'}`;
-    const derivedUserId = localStorage.getItem(userKey) || `${role || 'user'}-${Date.now()}`;
-    localStorage.setItem(userKey, derivedUserId);
+    const derivedUserId =
+      (typeof window !== 'undefined' && localStorage.getItem(userKey)) ||
+      `${role || 'user'}-${Date.now()}`;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(userKey, derivedUserId);
+    }
     const promptTemplate =
       '너는 {stakeholder_type}에게 특화된 personalized agent이다. 너의 임무는 사용자 질문을 이해하고 단계별 계획, 문제정의, 데이터해석, 디자인생성 등을 지원하는 것이다.';
-    const derivedPrompt = promptTemplate.replace(
-      '{stakeholder_type}',
-      role || 'stakeholder',
-    );
+    const derivedPrompt = promptTemplate.replace('{stakeholder_type}', role || 'stakeholder');
     setSigninError('');
     setSessionId(derivedUserId);
     setSystemPrompt(derivedPrompt);
@@ -393,7 +408,7 @@ function App() {
     }
     setSending(true);
     try {
-      if (LOCAL_ONLY) {
+      if (localOnly) {
         const nextConversation = [
           ...problemConversation,
           { role: 'user', content: problemPrompt },
@@ -432,7 +447,7 @@ function App() {
     }
     setLoadingSummary(true);
     try {
-      if (LOCAL_ONLY) {
+      if (localOnly) {
         setProblemSummary(
           problemSummary ||
             'Local-only mode summary: start the server to call chat_summary_agent across all stored sessions.',
@@ -464,7 +479,7 @@ function App() {
     }
     setSending(true);
     try {
-      if (LOCAL_ONLY) {
+      if (localOnly) {
         const localReply =
           'Local-only mode: this simulates an assistant reply. Start the server to store and retrieve full transcripts.';
         setConversation([
@@ -567,7 +582,7 @@ function App() {
         image: entry.image,
       }));
 
-      if (LOCAL_ONLY) {
+      if (localOnly) {
         const assistantMessage =
           'Local-only mode: simulated multimodal answer. Start the backend to enable LLM and database calls.';
         const nextConversation = [
@@ -616,7 +631,7 @@ function App() {
     }
     setDesignLoading(true);
     try {
-      if (LOCAL_ONLY) {
+      if (localOnly) {
         const prompt = `Local-only prompt from idea: ${designIdea}`;
         const localImage = 'https://placehold.co/600x400?text=Local+Only+Preview';
         const next = [
@@ -657,7 +672,7 @@ function App() {
     }
     setDesignLoading(true);
     try {
-      if (LOCAL_ONLY) {
+      if (localOnly) {
         const prompt = `${designPrompt} | refinement: ${designRefinement}`;
         const localImage = 'https://placehold.co/600x400?text=Local+Refinement';
         const next = [
@@ -715,7 +730,6 @@ function App() {
       </div>
     </section>
   );
-
 
   const stageCopy = {
     problem: {
@@ -842,7 +856,9 @@ function App() {
                 <button className="primary" onClick={sendAnalysisQuery} disabled={sending}>
                   {sending ? 'Sending...' : 'Ask personalized agent'}
                 </button>
-                <button className="secondary" onClick={() => setAnalysisResult('')}>Clear result</button>
+                <button className="secondary" onClick={() => setAnalysisResult('')}>
+                  Clear result
+                </button>
               </div>
               <div className="panel nested">
                 <h4>Conversation</h4>
@@ -877,7 +893,9 @@ function App() {
                 </div>
               </div>
               <p>
-                Construction of the Seoul Station Overpass began on March 18, 1969 and opened on August 15, 1970. For over 45 years, it has served as a key corridor but now faces aging infrastructure challenges. Residents feel the corridor separates the city while carrying freight and commuter loads.
+                Construction of the Seoul Station Overpass began on March 18, 1969 and opened on August 15, 1970. For over
+                45 years, it has served as a key corridor but now faces aging infrastructure challenges. Residents feel the
+                corridor separates the city while carrying freight and commuter loads.
               </p>
               <div className="two-column">
                 <div>
@@ -947,7 +965,8 @@ function App() {
                 <p className="stage-kicker">Stage 3 · Design/Plan Alternatives</p>
                 <h3>Generate visual options with a personalized agent</h3>
                 <p className="muted">
-                  The agent converts your idea into a ready-to-render image prompt, calls the image generator, and stores the prompt + URLs for your session.
+                  The agent converts your idea into a ready-to-render image prompt, calls the image generator, and stores the
+                  prompt + URLs for your session.
                 </p>
               </div>
             </div>
@@ -1068,7 +1087,8 @@ function App() {
       <div className="panel">
         <h2>Report Center</h2>
         <p>
-          Consolidate deliberation outcomes, generate exportable summaries, and align final recommendations with stakeholder roles. The structure follows the reporting elements described in the PPSS workflow.
+          Consolidate deliberation outcomes, generate exportable summaries, and align final recommendations with stakeholder
+          roles. The structure follows the reporting elements described in the PPSS workflow.
         </p>
         <ul className="report-list">
           <li>
@@ -1093,7 +1113,8 @@ function App() {
         <div className="panel">
           <h2>Personal Code Management</h2>
           <p>
-            Store or update your personal code to access the PPSS workspace. The code is kept locally in your browser to align with the privacy-aware setup described in the study.
+            Store or update your personal code to access the PPSS workspace. The code is kept locally in your browser to align
+            with the privacy-aware setup described in the study.
           </p>
           <form
             className="settings-form"
@@ -1168,6 +1189,3 @@ function App() {
     </div>
   );
 }
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App />);
